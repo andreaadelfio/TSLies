@@ -1,0 +1,10 @@
+pandas
+numpy
+tensorflow
+tensorflow-probability
+keras
+matplotlib
+scipy
+tqdm
+scikit-learn
+scikit-image

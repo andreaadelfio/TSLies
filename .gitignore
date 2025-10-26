@@ -1,0 +1,11 @@
+/example/results/
+/example/logs/
+/example/data
+/example/__pycache__/
+/tslies/__pycache__/
+/__pycache__/
+*.pyc
+/tslies/lime/
+/.vscode/
+/dist/
+/build/

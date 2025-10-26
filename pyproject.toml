@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tslies"
+version = "0.1.0"
+description = "TSLies: A package for time series analysis and background prediction using neural networks."
+authors = [
+    {name = "Andrea Adelfio"}
+]
+dependencies = [
+    "pandas",
+    "numpy",
+    "tensorflow",
+    "tensorflow-probability",
+    "keras",
+    "matplotlib",
+    "scipy",
+    "tqdm",
+    "scikit-learn",
+    "scikit-image"
+]
+readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = ["tslies"]
