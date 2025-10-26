@@ -1,39 +1,3 @@
-# TSLies
-
-TSLies is a Python package for time series analysis and background prediction using neural networks, including Bayesian Neural Networks and explainability tools.
-
-## Installation
-
-To install TSLies, clone the repository and install it using pip:
-
-```bash
-git clone <repository-url>
-cd TSLies
-pip install -e .
-```
-
-## Usage
-
-See the `example/` directory for usage examples.
-
-## Dependencies
-
-- pandas
-- numpy
-- tensorflow
-- tensorflow-probability
-- keras
-- matplotlib
-- scipy
-- tqdm
-- scikit-learn
-- scikit-image
-
-## License
-
-MIT
-
-
 # TSLies - Time Series Anomalies Detection Framework
 
 ## What is it?
