@@ -32,4 +32,4 @@ classifiers = [
 ]
 
 [tool.setuptools]
-packages = ["tslies", "tslies.background", "example"]
+packages = ["tslies", "tslies.background", "tslies.example"]
