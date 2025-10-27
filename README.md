@@ -88,6 +88,7 @@ flowchart TD
 ```bash
 git clone https://github.com/andreaadelfio/TSLies.git
 cd TSLies
+pip install --upgrade setuptools pip
 pip install -e .
 ```
 
