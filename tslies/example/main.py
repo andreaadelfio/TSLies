@@ -1,7 +1,7 @@
 import os
 from tslies.config import set_dir
 
-set_dir('/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/example')
+set_dir('tslies/example')
 
 from datetime import datetime
 

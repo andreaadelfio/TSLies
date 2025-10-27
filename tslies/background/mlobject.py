@@ -23,7 +23,7 @@ if dir_path is None:
 
 RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
 BACKGROUND_PREDICTION_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'background_prediction')
-DATA_LATACD_PROCESSED_FOLDER_NAME = os.path.join(dir_path, 'data', 'latacd_processed')
+# DATA_LATACD_PROCESSED_FOLDER_NAME = os.path.join(dir_path, 'data', 'latacd_processed')
 DIR = dir_path
 
 class MLObject(ABC):
@@ -144,7 +144,7 @@ class MLObject(ABC):
         if not os.path.exists(self.model_path):
             os.makedirs(self.model_path)
         self.params['model_path'] = self.model_path = os.path.join(self.model_path, 'model.keras')
-        self.params['dataframe_path'] = DATA_LATACD_PROCESSED_FOLDER_NAME
+        # # self.params['dataframe_path'] = DATA_LATACD_PROCESSED_FOLDER_NAME
 
         max_len = max(map(len, self.params.keys()))
         if not use_previous:
@@ -181,7 +181,11 @@ class MLObject(ABC):
         Returns:
         --------
             Model: The model.'''
-        self.model_path = os.path.join(DIR, model_path)
+        if model_path is not None and model_path != '':
+            if os.path.exists(model_path):
+                self.model_path = model_path
+            elif os.path.exists(os.path.join(DIR, model_path)):
+                self.model_path = os.path.join(DIR, model_path)
         self.nn_r = load_model(self.model_path, compile=compile)
         self.params['model_path'] = os.path.dirname(self.model_path)
         return self.nn_r
