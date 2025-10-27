@@ -85,16 +85,17 @@ flowchart TD
 - CUDA-compatible GPU (recommended for neural networks training)
 
 ### Quick Installation
+Install from PyPI:
+```bash
+pip install git+https://github.com/andreaadelfio/TSLies
+```
+
+or clone and install locally.
 ```bash
 git clone https://github.com/andreaadelfio/TSLies.git
 cd TSLies
 pip install --upgrade setuptools pip
 pip install -e .
-```
-
-Or install from PyPI (not yet available):
-```bash
-pip install tslies
 ```
 
 ### Python Dependencies
