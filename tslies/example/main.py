@@ -23,6 +23,7 @@ from tslies.utils import File
 
 from example_config import y_cols, y_cols_raw, y_pred_cols, y_smooth_cols, x_cols, x_cols_excluded, units, latex_y_cols, thresholds
 
+from catalogs import CatalogsReader
 
 
 def run_bnn(inputs_outputs, y_cols, y_cols_raw, cols_pred, y_smooth_cols, x_cols):
@@ -69,8 +70,35 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_raw, y_cols_pred, x_cols, 
 
     Trigger(tiles_df, y_cols_raw, y_cols_pred, y_cols_raw, units, latex_y_cols).run(thresholds, type='focus', save_anomalies_plots=True, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'])
 
+
+def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_raw, y_cols_pred, x_cols, catalog):
+    '''Runs the model'''
+    import pandas as pd
+    tiles_df = inputs_outputs_df.copy()
+    stats = []
+    for face in y_cols:
+        tiles_df[f'{face}_std'] = tiles_df[face].rolling(window=120, center=True, min_periods=1).std()
+        tiles_df[f'{face}_pred'] = tiles_df[face].rolling(window=120, center=True, min_periods=1).mean()
+
+        norm_face = (tiles_df[face] - tiles_df[f'{face}_pred']) / tiles_df[f'{face}_std']
+        stats.append({
+            'face': face,
+            'std': round(norm_face.std(), 3),
+            'mean': round(norm_face.mean(), 3)
+        })
+    stats_df = pd.DataFrame(stats)
+    print(stats_df.set_index('face').T.to_string(header=True))
+    support_vars = ['GOES_XRSA_HARD_EARTH_OCCULTED']
+    Trigger(tiles_df, y_cols, y_cols_pred, y_cols, units, latex_y_cols).run(thresholds, type='FOCUS', save_anomalies_plots=True, support_vars=support_vars, catalog=catalog)
+
+
+
 if __name__ == '__main__':
+    catalog = CatalogsReader().catalog_df
+
     x_cols = [col for col in x_cols if col not in x_cols_excluded]
     inputs_outputs_df = File().read_dfs_from_weekly_pk_folder(start=0, stop=1000)
-    nn = run_bnn(inputs_outputs_df, y_cols, y_cols_raw, y_pred_cols, y_smooth_cols, x_cols)
-    run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_raw, y_pred_cols, x_cols, nn.model_path)
+    # nn = run_bnn(inputs_outputs_df, y_cols, y_cols_raw, y_pred_cols, y_smooth_cols, x_cols)
+    # model_path = '/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/example/results/2025-10-27/background_prediction/1456/BNNPredictor/0/model.keras'
+    # run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_raw, y_pred_cols, x_cols, model_path)
+    run_trigger_mean(inputs_outputs_df, y_cols, y_cols_raw, y_pred_cols, x_cols, catalog)

@@ -1,0 +1,284 @@
+Trovato in 37297.json
+subject: SGR 1E 1841-045 / Kes 73: SVOM/GRM observation
+UTC: 2024-08-22T11:00:56.800
+RA: N/A°   DEC: N/A°
+Trovato in 38123.json
+subject: GRB 241105A: SVOM/GRM observation
+UTC: 2024-11-05T16:06:05.00
+RA: N/A°   DEC: N/A°
+Trovato in 39335.json
+subject: GRB 250215A: SVOM/GRM observation
+UTC: 2025-02-15T02:32:03.300
+RA: N/A°   DEC: N/A°
+Trovato in 38363.json
+subject: GRB 241127A: SVOM/GRM observation
+UTC: 2024-11-27T21:43:16.230
+RA: N/A°   DEC: N/A°
+Trovato in 36900.json
+subject: GRB 240718A: SVOM/GRM observation
+UTC: 2024-07-18T06:29:00.800
+RA: N/A°   DEC: N/A°
+Trovato in 39163.json
+subject: GRB 250204B: SVOM/GRM observation of a likely short burst
+UTC: 2025-02-04T06:41:14.100
+RA: N/A°   DEC: N/A°
+Trovato in 37716.json
+subject: GRB 241004A: SVOM/GRM observation
+UTC: 2024-10-04T10:14:32.000
+RA: N/A°   DEC: N/A°
+Trovato in 38343.json
+subject: SVOM/GRM observation of GRB 241126B or a short burst from magnetar
+UTC: 2024-11-26T17:58:15.000
+RA: N/A°   DEC: N/A°
+Trovato in 37921.json
+subject: GRB 241026A: SVOM/GRM observation
+UTC: 2024-10-26T22:42:32.000
+RA: N/A°   DEC: N/A°
+Trovato in 37022.json
+subject: GRB 240802A: SVOM/GRM observation
+UTC: 2024-08-02T10:34:03.300
+RA: N/A°   DEC: N/A°
+Trovato in 37166.json
+subject: GRB 240810A: SVOM/GRM observation
+UTC: 2024-08-10T21:07:19.900
+RA: N/A°   DEC: N/A°
+Trovato in 37424.json
+subject: GRB 240801A: SVOM/GRM observation
+UTC: 2024-08-01T03:18:10.000
+RA: N/A°   DEC: N/A°
+Trovato in 38250.json
+subject: GRB 241115D / EP 241115a: SVOM/GRM observation
+UTC: 2024-11-15T05:45:36
+RA: N/A°   DEC: N/A°
+Trovato in 38342.json
+subject: GRB 241126A: SVOM/GRM observation
+UTC: 2024-11-26T05:04:16.000
+RA: N/A°   DEC: N/A°
+Trovato in 38180.json
+subject: GRB 241112B: SVOM/GRM observation
+UTC: 2024-11-12T10:57:21
+RA: N/A°   DEC: N/A°
+Trovato in 37202.json
+subject: GRB 240814A: SVOM/GRM observation
+UTC: 2024-08-14T03:55:56.000
+RA: N/A°   DEC: N/A°
+Trovato in 38266.json
+subject: GRB 241117A: SVOM/GRM observation of a short burst with extended emission
+UTC: 2024-11-17T03:00:43.3
+RA: N/A°   DEC: N/A°
+Trovato in 37111.json
+subject: GRB 240807A: SVOM/GRM observation
+UTC: 2024-08-07T05:42:45
+RA: N/A°   DEC: N/A°
+Trovato in 37054.json
+subject: GRB 240805A: SVOM/GRM observation
+UTC: 2024-08-05T02:02:21.400
+RA: N/A°   DEC: N/A°
+Trovato in 37404.json
+subject: GRB 240905E: SVOM/GRM observation
+UTC: 2024-09-05T18:26:03.800
+RA: N/A°   DEC: N/A°
+Trovato in 37445.json
+subject: GRB 240910A: SVOM/GRM observation
+UTC: 2024-09-10T04:00:46.000
+RA: N/A°   DEC: N/A°
+Trovato in 37198.json
+subject: GRB 240815A: SVOM/GRM observation
+UTC: 2024-08-15T22:37:09
+RA: N/A°   DEC: N/A°
+Trovato in 39493.json
+subject: GRB 250225B: SVOM/GRM observation of a long burst
+UTC: 2025-02-25T19:39:14.000
+RA: N/A°   DEC: N/A°
+Trovato in 38390.json
+subject: SVOM/GRM observation of a short burst from soft gamma repeater Kes 73
+UTC: 2024-11-29T10:56:49.200
+RA: N/A°   DEC: N/A°
+Trovato in 37803.json
+subject: GRB 241016B: SVOM/GRM observation
+UTC: 2024-10-16T11:12:40.100
+RA: N/A°   DEC: N/A°
+Trovato in 36906.json
+subject: GRB 240713A: SVOM/GRM observation
+UTC: 2024-07-13T02:02:40
+RA: N/A°   DEC: N/A°
+Trovato in 39470.json
+subject: GRB 250223C: SVOM/GRM observation of a long burst
+UTC: 2025-02-23T16:18:36.500
+RA: N/A°   DEC: N/A°
+Trovato in 39164.json
+subject: GRB 250127C: SVOM/GRM observation of a burst
+UTC: 2025-01-27T05:34:47.500
+RA: N/A°   DEC: N/A°
+Trovato in 38870.json
+subject: GRB 250107C: SVOM/GRM observation
+UTC: 2025-01-07T18:52:16.300
+RA: N/A°   DEC: N/A°
+Trovato in 37394.json
+subject: GRB 240905A: SVOM/GRM observation
+UTC: 2024-09-05T01:16:38.000
+RA: N/A°   DEC: N/A°
+Trovato in 37382.json
+subject: GRB 240828A: SVOM/GRM observation
+UTC: 2024-08-28T14:55:07.200
+RA: N/A°   DEC: N/A°
+Trovato in 37785.json
+subject: GRB 241013B: SVOM/GRM observation
+UTC: 2024-10-13T22:27:43.000
+RA: N/A°   DEC: N/A°
+Trovato in 38923.json
+subject: GRB 250113A: SVOM/GRM observation of a long burst
+UTC: 2025-01-13T06:24:36.900
+RA: N/A°   DEC: N/A°
+Trovato in 37863.json
+subject: GRB 241025A: SVOM/GRM observation
+UTC: 2024-10-25T01:36:40
+RA: N/A°   DEC: N/A°
+Trovato in 38738.json
+subject: GRB 241229B: SVOM/GRM observation
+UTC: 2024-12-29T01:36:17.000
+RA: N/A°   DEC: N/A°
+Trovato in 37009.json
+subject: GRB 240727C: SVOM/GRM observation
+UTC: 2024-07-27T17:30:09
+RA: N/A°   DEC: N/A°
+Trovato in 38578.json
+subject: GRB 241214A: SVOM/GRM observation
+UTC: 2024-12-14T03:24:32.900
+RA: N/A°   DEC: N/A°
+Trovato in 38082.json
+subject: GRB 241104A: SVOM/GRM observation
+UTC: 2024-11-04T18:30:14
+RA: N/A°   DEC: N/A°
+Trovato in 39369.json
+subject: GRB 250217C: SVOM/GRM observation
+UTC: 2025-02-17T23:54:41.900
+RA: N/A°   DEC: N/A°
+Trovato in 39282.json
+subject: GRB 250210A: SVOM/GRM observation of a long burst
+UTC: 2025-02-10T05:31:56.000
+RA: N/A°   DEC: N/A°
+Trovato in 37972.json
+subject: GRB 241030A: SVOM/GRM observation
+UTC: 2024-10-30T05:48:14
+RA: N/A°   DEC: N/A°
+Trovato in 37227.json
+subject: GRB 240821A: SVOM/GRM observation
+UTC: 2024-08-21T18:36:02.700
+RA: N/A°   DEC: N/A°
+Trovato in 38994.json
+subject: GRB 250117A: SVOM/GRM observation of a short burst
+UTC: 2025-01-17T20:21:58.300
+RA: N/A°   DEC: N/A°
+Trovato in 37179.json
+subject: GRB 240812B: SVOM/GRM observation
+UTC: 2024-08-12T09:05:54.000
+RA: N/A°   DEC: N/A°
+Trovato in 37616.json
+subject: GRB 240926A: SVOM/GRM observation
+UTC: 2024-09-26T11:42:45.000
+RA: N/A°   DEC: N/A°
+Trovato in 38388.json
+subject: GRB 241128B: SVOM/GRM observation
+UTC: 2024-11-28T05:22:24.000
+RA: N/A°   DEC: N/A°
+Trovato in 37504.json
+subject: GRB 240914A: SVOM/GRM observation
+UTC: 2024-09-14T01:40:03.9
+RA: N/A°   DEC: N/A°
+Trovato in 37457.json
+subject: GRB 240710A: SVOM/GRM observation
+UTC: 2024-07-10T17:11:47.200
+RA: N/A°   DEC: N/A°
+Trovato in 38389.json
+subject: GRB 241128C: SVOM/GRM observation
+UTC: 2024-11-28T18:07:23.050
+RA: N/A°   DEC: N/A°
+Trovato in 36944.json
+subject: GRB 240726A: SVOM/GRM observation
+UTC: 2024-07-26T08:07:49
+RA: N/A°   DEC: N/A°
+Trovato in 37226.json
+subject: GRB 240821A: SVOM/GRM observation
+UTC: 2024-08-21T18:36:02.700
+RA: N/A°   DEC: N/A°
+Trovato in 37637.json
+subject: GRB 240928A: SVOM/GRM observation
+UTC: 2024-09-28T19:02:10
+RA: N/A°   DEC: N/A°
+Trovato in 39490.json
+subject: GRB 250214A: SVOM/GRM observation
+UTC: 2025-02-14T05:32:06
+RA: N/A°   DEC: N/A°
+Trovato in 38002.json
+subject: GRB 241030B: SVOM/GRM observation
+UTC: 2024-10-30T18:34:22.000
+RA: N/A°   DEC: N/A°
+Trovato in 38662.json
+subject: GRB 241219A: SVOM/GRM observation
+UTC: 2024-12-19T01:12:42
+RA: N/A°   DEC: N/A°
+Trovato in 37714.json
+subject: GRB 240930B / EP 240930a: SVOM/GRM observation
+UTC: 2024-09-30T17:18:08
+RA: N/A°   DEC: N/A°
+Trovato in 37112.json
+subject: GRB 240808A: SVOM/GRM observation
+UTC: 2024-08-08T11:57:57
+RA: N/A°   DEC: N/A°
+Trovato in 37574.json
+subject: GRB 240919A / EP240919a: SVOM/GRM observation
+UTC: 2024-09-19T14:47:40
+RA: N/A°   DEC: N/A°
+Trovato in 38455.json
+subject: GRB 241206C: SVOM/GRM observation of a likely short burst
+UTC: 2024-12-06T10:03:43.8
+RA: N/A°   DEC: N/A°
+Trovato in 37935.json
+subject: GRB 241029A: SVOM/GRM observation
+UTC: 2024-10-29T02:19:58
+RA: N/A°   DEC: N/A°
+Trovato in 38793.json
+subject: GRB 250101B: SVOM/GRM observation
+UTC: 2025-01-01T23:14:12
+RA: N/A°   DEC: N/A°
+Trovato in 37831.json
+subject: GRB 241018A: SVOM/GRM observation
+UTC: 2024-10-18T11:54:37.500
+RA: N/A°   DEC: N/A°
+Trovato in 38212.json
+subject: GRB 241113B: SVOM/GRM observation
+UTC: 2024-11-13T11:23:05
+RA: N/A°   DEC: N/A°
+Trovato in 39454.json
+subject: GRB 250222A: SVOM/GRM observation of a burst
+UTC: 2025-02-22T14:24:26.100
+RA: N/A°   DEC: N/A°
+Trovato in 37693.json
+subject: GRB 241002D: SVOM/GRM observation
+UTC: 2024-10-02T22:08:07.000
+RA: N/A°   DEC: N/A°
+Trovato in 37113.json
+subject: GRB 240809A: SVOM/GRM observation
+UTC: 2024-08-09T08:30:28
+RA: N/A°   DEC: N/A°
+Trovato in 37216.json
+subject: GRB 240820B: SVOM/GRM observation
+UTC: 2024-08-20T20:11:30
+RA: N/A°   DEC: N/A°
+Trovato in 36915.json
+subject: GRB 240720B: SVOM/GRM observation
+UTC: 2024-07-20T16:11:23.200
+RA: N/A°   DEC: N/A°
+Trovato in 37484.json
+subject: GRB 240912A: SVOM/GRM observation
+UTC: 2024-09-12T01:47:37.000
+RA: N/A°   DEC: N/A°
+Trovato in 37650.json
+subject: GRB 240929A: SVOM/GRM observation
+UTC: 2024-09-29T19:50:08.000
+RA: N/A°   DEC: N/A°
+Trovato in 37200.json
+subject: GRB 240814C: SVOM/GRM observation
+UTC: 2024-08-14T18:50:24.500
+RA: N/A°   DEC: N/A°

@@ -180,27 +180,27 @@ class Trigger:
 
         return new_curve_list, global_max, time_offset
 
-    def trigger_face_z_score(self, signal, face, diff):
+    def trigger_face_z_score(self, signal, face, reset):
         '''
         Calculates the z-score of the signal and the offset of the change point.
         '''
         result = {f'{face}_significance': signal, f'{face}_offset': signal*0}
         return result
 
-    def trigger_gauss_focus(self, signal, face, diff):
+    def trigger_gauss_focus(self, signal, face, reset):
         '''
         From the original python implementation of
         FOCuS Poisson by Kester Ward (2021). All rights reserved.
         '''
         result = {f'{face}_offset': [], f'{face}_significance': []}
         curve_list = []
-        for T in tqdm(signal.index, desc=face):
-            x_t = signal[T]
-            if diff[T] > 60:
+        for T in tqdm(range(len(signal)), desc=face):
+            if reset[T]:
                 curve_list = []
-            curve_list, global_max, offset = self.focus_step_quad(curve_list, x_t, 0.95)
+            curve_list, global_max, offset = self.focus_step_quad(curve_list, signal[T], 0.95)
             result[f'{face}_offset'].append(offset)
-            result[f'{face}_significance'].append(np.sqrt(2 * global_max))
+            result[f'{face}_significance'].append(global_max)
+        result[f'{face}_significance'] = np.sqrt(2 * np.array(result[f'{face}_significance']))
         return result
     
 
@@ -235,7 +235,7 @@ class Trigger:
         }
 
     @logger_decorator(logger)
-    def run(self, thresholds: dict, type='z_score', save_anomalies_plots=True, support_vars=[], file='', catalog=None):
+    def run(self, thresholds: dict, type='z_score', save_anomalies_plots=True, support_vars=[], file='', catalog=None, use_multiprocessing=True):
         '''Run the trigger algorithm on the dataset.
 
         Args:
@@ -254,56 +254,65 @@ class Trigger:
 
         triggs_dict = {}
         diff = self.tiles_df['MET'].diff()
-        pool = multiprocessing.Pool(5)
-        results = []
-        
+        reset = diff > 60
         triggerer = self.trigger_face_z_score if type.lower() == 'z_score' else self.trigger_gauss_focus
-        for face, face_pred in zip(self.y_cols, self.y_cols_pred):
-            signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
-            result = pool.apply_async(triggerer, (signal, face, diff))
-            results.append(result)
+        if use_multiprocessing:
+            pool = multiprocessing.Pool(5)
+            results = []
+            
+            for face, face_pred in zip(self.y_cols, self.y_cols_pred):
+                signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
+                result = pool.apply_async(triggerer, (signal.values, face, reset.values))
+                results.append(result)
 
-        for result in results:
-            triggs_dict.update(result.get())
-        pool.close()
-        pool.join()
+            for result in results:
+                triggs_dict.update(result.get())
+            pool.close()
+            pool.join()
+        else:
+            for face, face_pred in zip(self.y_cols, self.y_cols_pred):
+                signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
+                result = triggerer(signal.values, face, reset.values)
+                triggs_dict.update(result)
 
         triggs_df = pd.DataFrame(triggs_dict)
         triggs_df['datetime'] = self.tiles_df['datetime']
         return_df = triggs_df.copy()
-        mask = False
+        
         for face in self.y_cols:
-            mask |= triggs_df[f'{face}_significance'] > thresholds[face]
+            triggs_df[f'{face}_triggered'] = triggs_df[f'{face}_significance'] > thresholds[face]
 
+        mask = triggs_df[[f'{face}_triggered' for face in self.y_cols]].any(axis=1)
         triggs_df = triggs_df[mask]
 
-        count = 0
         anomalies_faces = {face: [] for face in self.y_cols}
         old_stopping_time = {face: -1 for face in self.y_cols}
+        count = 0
 
-        for index, row in tqdm(triggs_df.iterrows(), total=len(triggs_df), desc='Identifying triggers'):
+        for face in self.y_cols:
+            triggs_df[f'new_start_datetime_{face}'] = triggs_df.apply(lambda r: str(r['datetime'] + timedelta(seconds=r[f'{face}_offset'])), axis=1)
+        triggs_df['new_stop_datetime'] = triggs_df['datetime'] + timedelta(seconds=1)
+
+        for row in tqdm(triggs_df.itertuples(index=True), desc='Identifying triggers'):
+            index = row.Index
             for face in self.y_cols:
-                if row[f'{face}_significance'] > thresholds[face]:
-                    new_start_index = row[f'{face}_offset'] + index
-                    new_start_datetime = str(row['datetime'] + timedelta(seconds=row[f'{face}_offset']))
+                if getattr(row, f'{face}_triggered'):
+                    new_start_index = getattr(row, f'{face}_offset') + index
+                    new_start_datetime = getattr(row, f'new_start_datetime_{face}')
                     new_stop_index = index + 1
-                    new_stop_datetime = str(row['datetime'] + timedelta(seconds=1))
+                    new_stop_datetime = row.new_stop_datetime
 
                     if index == old_stopping_time[face] + 1 or new_start_index <= old_stopping_time[face] + 60 and anomalies_faces[face]:
                         last_anomaly = anomalies_faces[face].pop()
-                        old_start_index = last_anomaly[1]
-                        old_start_datetime = last_anomaly[3]
-                        new_anomaly = (face, old_start_index, new_stop_index, old_start_datetime, new_stop_datetime)
+                        new_start_index = last_anomaly[1]
+                        new_start_datetime = last_anomaly[3]
                     else:
                         count += 1
-                        new_anomaly = (face, new_start_index, new_stop_index, new_start_datetime, new_stop_datetime)
-
+                    new_anomaly = (face, new_start_index, new_stop_index, new_start_datetime, new_stop_datetime)
                     anomalies_faces[face].append(new_anomaly)
                     old_stopping_time[face] = new_stop_index
         
-        anomalies_list = []
-        for face in self.y_cols:
-            anomalies_list += anomalies_faces[face]
+        anomalies_list = [anomaly for face_anomalies in anomalies_faces.values() for anomaly in face_anomalies]
 
         print('Merging triggers...', end=' ')
         merged_anomalies = {}

@@ -313,7 +313,7 @@ class Plotter:
         detections_df = self.read_detections_files(detections_file_path)
         
         results = {}
-        if catalog:
+        if catalog is not None and not catalog.empty:
             for detection in detections_df.itertuples():
                 comparison_df = catalog[
                     ((catalog['TIME'] <= np.datetime64(detection.start_datetime)) & (np.datetime64(detection.start_datetime) <= catalog['END_TIME'])) |
