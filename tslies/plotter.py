@@ -419,10 +419,6 @@ class Plotter:
                             cat_event['END_TIME'], cat_event['TIME']),
                             (-5, -5, max_val, max_val), color="yellow", alpha=0.1
                         )
-                # ax_residuals.set_ylabel(f'${latex_y_cols[face]}$')
-                # ax_residuals_2 = ax_residuals.twinx()
-                # ax_residuals_2.tick_params(axis='y', which='both', left=False, right=False, labelleft=False, labelright=False)
-                # ax_residuals_2.set_ylabel(f'[{units[face]}]')
 
                 ax_residuals.yaxis.set_label_coords(-0.06, 1.02)
                 ax_signal.yaxis.set_label_coords(-0.06, 1.02)
@@ -446,9 +442,6 @@ class Plotter:
                 ax_signal.set_xlim(start_xlim, end_xlim)
                 ax_residuals.set_xlim(start_xlim, end_xlim)
 
-                # ax_signal.tick_params(axis="y", labelrotation=45)
-                # ax_residuals.tick_params(axis="y", labelrotation=45)
-                
                 plt.setp(ax_signal.get_xticklabels(), visible=False)
                 if num_support_vars > 0 or i < len(y_cols) - 1:
                     plt.setp(ax_residuals.get_xticklabels(), visible=False)

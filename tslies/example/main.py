@@ -89,8 +89,7 @@ def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_raw, y_cols_pred, x_cols,
     stats_df = pd.DataFrame(stats)
     print(stats_df.set_index('face').T.to_string(header=True))
     support_vars = ['GOES_XRSA_HARD_EARTH_OCCULTED']
-    Trigger(tiles_df, y_cols, y_cols_pred, y_cols, units, latex_y_cols).run(thresholds, type='FOCUS', save_anomalies_plots=True, support_vars=support_vars, catalog=catalog)
-
+    Trigger(tiles_df, y_cols, y_cols_pred, y_cols, units, latex_y_cols).run(thresholds, type='FOCUS', save_anomalies_plots=False, support_vars=support_vars, catalog=catalog, use_multiprocessing=True)
 
 
 if __name__ == '__main__':

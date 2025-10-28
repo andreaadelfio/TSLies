@@ -8,6 +8,8 @@ from datetime import timedelta
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
+import bisect
+
 
 from .plotter import Plotter
 from .utils import Data, Logger, logger_decorator
@@ -180,29 +182,33 @@ class Trigger:
 
         return new_curve_list, global_max, time_offset
 
-    def trigger_face_z_score(self, signal, face, reset):
+    def trigger_face_z_score(self, signal, face, reset_indices, threshold):
         '''
         Calculates the z-score of the signal and the offset of the change point.
         '''
-        result = {f'{face}_significance': signal, f'{face}_offset': signal*0}
+        result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0}
         return result
 
-    def trigger_gauss_focus(self, signal, face, reset):
+    def trigger_gauss_focus(self, signal, face, reset_indices, threshold):
         '''
         From the original python implementation of
         FOCuS Poisson by Kester Ward (2021). All rights reserved.
         '''
-        result = {f'{face}_offset': [], f'{face}_significance': []}
+        result = {f'{face}_offset': [], f'{face}_triggered': [], f'{face}_significance': []}
         curve_list = []
-        for T in tqdm(range(len(signal)), desc=face):
-            if reset[T]:
-                curve_list = []
-            curve_list, global_max, offset = self.focus_step_quad(curve_list, signal[T], 0.95)
-            result[f'{face}_offset'].append(offset)
-            result[f'{face}_significance'].append(global_max)
+        
+        start = 0
+        for end in tqdm(reset_indices, desc=face):
+            for value in signal[start:end]:
+                curve_list, global_max, offset = self.focus_step_quad(curve_list, value, 0.95)
+                result[f'{face}_offset'].append(offset)
+                result[f'{face}_significance'].append(global_max)
+            curve_list = []
+            start = end
+
         result[f'{face}_significance'] = np.sqrt(2 * np.array(result[f'{face}_significance']))
+        result[f'{face}_triggered'] = result[f'{face}_significance'] > threshold
         return result
-    
 
     def compute_direction(self, values_dict):
 
@@ -255,6 +261,9 @@ class Trigger:
         triggs_dict = {}
         diff = self.tiles_df['MET'].diff()
         reset = diff > 60
+        reset_indices = np.where(reset)[0]
+        reset_indices = np.append(reset_indices, len(reset))
+
         triggerer = self.trigger_face_z_score if type.lower() == 'z_score' else self.trigger_gauss_focus
         if use_multiprocessing:
             pool = multiprocessing.Pool(5)
@@ -262,7 +271,7 @@ class Trigger:
             
             for face, face_pred in zip(self.y_cols, self.y_cols_pred):
                 signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
-                result = pool.apply_async(triggerer, (signal.values, face, reset.values))
+                result = pool.apply_async(triggerer, (signal.values, face, reset_indices, thresholds[face]))
                 results.append(result)
 
             for result in results:
@@ -272,28 +281,26 @@ class Trigger:
         else:
             for face, face_pred in zip(self.y_cols, self.y_cols_pred):
                 signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
-                result = triggerer(signal.values, face, reset.values)
+                result = triggerer(signal.values, face, reset_indices, thresholds[face])
                 triggs_dict.update(result)
+
+        triggered_cols = [f'{face}_triggered' for face in self.y_cols]
+        triggered_arrays = [np.array(triggs_dict[col]) for col in triggered_cols]
+        mask = np.any(triggered_arrays, axis=0)
 
         triggs_df = pd.DataFrame(triggs_dict)
         triggs_df['datetime'] = self.tiles_df['datetime']
         return_df = triggs_df.copy()
-        
-        for face in self.y_cols:
-            triggs_df[f'{face}_triggered'] = triggs_df[f'{face}_significance'] > thresholds[face]
-
-        mask = triggs_df[[f'{face}_triggered' for face in self.y_cols]].any(axis=1)
         triggs_df = triggs_df[mask]
 
         anomalies_faces = {face: [] for face in self.y_cols}
         old_stopping_time = {face: -1 for face in self.y_cols}
-        count = 0
 
         for face in self.y_cols:
             triggs_df[f'new_start_datetime_{face}'] = triggs_df.apply(lambda r: str(r['datetime'] + timedelta(seconds=r[f'{face}_offset'])), axis=1)
         triggs_df['new_stop_datetime'] = triggs_df['datetime'] + timedelta(seconds=1)
 
-        for row in tqdm(triggs_df.itertuples(index=True), desc='Identifying triggers'):
+        for row in tqdm(triggs_df.itertuples(index=True), total=len(triggs_df), desc='Identifying triggers'):
             index = row.Index
             for face in self.y_cols:
                 if getattr(row, f'{face}_triggered'):
@@ -306,18 +313,17 @@ class Trigger:
                         last_anomaly = anomalies_faces[face].pop()
                         new_start_index = last_anomaly[1]
                         new_start_datetime = last_anomaly[3]
-                    else:
-                        count += 1
                     new_anomaly = (face, new_start_index, new_stop_index, new_start_datetime, new_stop_datetime)
                     anomalies_faces[face].append(new_anomaly)
                     old_stopping_time[face] = new_stop_index
-        
+            
+        merged_starts = []
         anomalies_list = [anomaly for face_anomalies in anomalies_faces.values() for anomaly in face_anomalies]
-
-        print('Merging triggers...', end=' ')
+        anomalies_list.sort(key=lambda x: x[1])
+        print(f'Merging {len(anomalies_list)} triggers...', end=' ')
         merged_anomalies = {}
         for face, start, stopping_time, start_datetime, stop_datetime in anomalies_list:
-            if returned := self.is_mergeable(start, merged_anomalies, minutes=1):
+            if returned := self.is_mergeable(start, merged_starts, minutes=1):
                 start, old_start = returned
                 if start < old_start:
                     merged_anomalies[start] = merged_anomalies[old_start]
@@ -325,8 +331,14 @@ class Trigger:
                 elif start > old_start:
                     start = old_start
                 merged_anomalies[start][face] = {'start_index': start, 'stop_index': stopping_time, 'start_datetime': start_datetime, 'stop_datetime': stop_datetime}
+                if start not in merged_starts:
+                    bisect.insort(merged_starts, start)
+                if old_start in merged_starts and old_start != start:
+                    merged_starts.remove(old_start)
+
             else:
                 merged_anomalies[start] = {face: {'start_index': start, 'stop_index': stopping_time, 'start_datetime': start_datetime, 'stop_datetime': stop_datetime}}
+                bisect.insort(merged_starts, start)
         print(f'{len(merged_anomalies)} anomalies in total.')
 
         detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections_{file}.csv') if file else os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'detections.csv')
@@ -353,26 +365,23 @@ class Trigger:
                 f.write(f"{self.tiles_df['datetime'][int(anomaly_start)]},{self.tiles_df['datetime'][int(anomaly_end)]},{self.tiles_df['MET'][int(anomaly_start)]},{self.tiles_df['MET'][int(anomaly_end)]},{'/'.join(triggered_faces)}\n")
 
         self.tiles_df = Data.merge_dfs(self.tiles_df[self.y_cols + self.y_cols_pred + support_vars + ['datetime'] + [f'{y_col}_std' for y_col in self.y_cols]], return_df, on_column='datetime')
+        
         if save_anomalies_plots:
             Plotter(df = merged_anomalies).plot_anomalies_in_catalog(type, support_vars, thresholds, self.tiles_df, self.y_cols_raw, self.y_cols_pred, only_in_catalog=True, show=False, units=self.units, latex_y_cols=self.latex_y_cols, detections_file_path=detections_file_path, catalog=catalog)
 
         return merged_anomalies, return_df
             
-    def is_mergeable(self, start: int, merged_anomalies: dict, minutes = 1) -> tuple[int, int]:
-        '''Check if the current anomaly is mergeable with any of the previous anomalies.
-
-        Args:
-            `start` (int): start time of the current anomaly
-            `merged_anomalies` (dict): dict of anomalies
-
-        Returns:
-            tuple: (start, anomaly_start) if the anomaly is mergeable, False otherwise
-        '''
-        for anomaly_start in merged_anomalies:
-            if start - 60 * minutes < anomaly_start < start + 60 * minutes:
+    def is_mergeable(self, start: int, merged_starts: list, minutes=1) -> tuple[int, int]:
+        '''Check if mergeable using binary search on sorted list.'''
+        tolerance = 60 * minutes
+        # Trova il range possibile con bisect
+        left = bisect.bisect_left(merged_starts, start - tolerance)
+        right = bisect.bisect_right(merged_starts, start + tolerance)
+        for i in range(left, right):
+            anomaly_start = merged_starts[i]
+            if (start - tolerance) < anomaly_start < (start + tolerance):  # Usa included per controllo preciso
                 return start, anomaly_start
         return False
-
 
 if __name__ == '__main__':
     print('to be implemented')
