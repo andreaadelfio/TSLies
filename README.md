@@ -4,16 +4,48 @@
 **TSLies** (Time Series anomaLIES) is an advanced anomaly detection framework using state-of-the-art Machine Learning techniques and the Poisson-FOCuS triggering algorithm for real-time anomaly detection in time series data. This framework provides a comprehensive suite of ML models, from deterministic to Bayesian approaches, for robust background modeling and anomaly detection in any time series dataset.
 
 ## Table of contents
+- [Installation and Dependencies](#installation-and-dependencies)
 - [Main Features](#main-features)
 - [Architecture Overview](#architecture-overview)
 - [Machine Learning Models](#machine-learning-models)
-- [Installation and Dependencies](#installation-and-dependencies)
 - [Modules](#modules)
 - [Scripts and Pipelines](#scripts-and-pipelines)
 - [Usage](#usage)
 - [Data Structure](#data-structure)
 - [Contributing](#contributing)
 - [Contact](#contact)
+
+## Installation and Dependencies
+
+### Prerequisites
+- Python 3.8+
+- CUDA-compatible GPU (optional, recommended for neural networks training)
+
+### Quick Installation
+Install from PyPI:
+```bash
+pip install git+https://github.com/andreaadelfio/TSLies
+```
+
+or clone and install locally.
+```bash
+git clone https://github.com/andreaadelfio/TSLies.git
+cd TSLies
+pip install --upgrade setuptools pip
+pip install -e .
+```
+
+### Python Dependencies
+Core packages include:
+- `tensorflow>=2.16.0` (neural networks)
+- `tensorflow-probability>=0.23.0` (Bayesian models)
+- `tf-keras>=2.16.0` (Keras integration)
+- `pandas>=1.3.0` (data manipulation)
+- `scikit-learn>=1.0.0` (classical ML)
+- `matplotlib>=3.5.0` (visualization)
+- `seaborn>=0.11.0` (advanced plotting)
+- `numpy>=1.21.0` (numerical computing)
+- `astropy>=5.0.0` (astronomical data formats)
 
 ## Main Features
 
@@ -78,50 +110,18 @@ flowchart TD
 - **Computational Efficiency**: Real-time processing requirements
 - **Interpretability**: Understanding model decisions and feature importance
 
-## Installation and Dependencies
-
-### Prerequisites
-- Python 3.8+
-- CUDA-compatible GPU (recommended for neural networks training)
-
-### Quick Installation
-Install from PyPI:
-```bash
-pip install git+https://github.com/andreaadelfio/TSLies
-```
-
-or clone and install locally.
-```bash
-git clone https://github.com/andreaadelfio/TSLies.git
-cd TSLies
-pip install --upgrade setuptools pip
-pip install -e .
-```
-
-### Python Dependencies
-Core packages include:
-- `tensorflow>=2.16.0` (neural networks)
-- `tensorflow-probability>=0.23.0` (Bayesian models)
-- `tf-keras>=2.16.0` (Keras integration)
-- `pandas>=1.3.0` (data manipulation)
-- `scikit-learn>=1.0.0` (classical ML)
-- `matplotlib>=3.5.0` (visualization)
-- `seaborn>=0.11.0` (advanced plotting)
-- `numpy>=1.21.0` (numerical computing)
-- `astropy>=5.0.0` (astronomical data formats)
-
 ## Modules
 
 TSLies is organized into a modular architecture separating generic time series functionality from domain-specific applications:
 
-### Core Modules (`modules/`)
+### Core Modules (`tslies/`)
 
-#### **modules/config.py**
+#### **tslies/config.py**
 Centralized configuration management:
 - File paths and directory structure
 - Configurable thresholds and parameters
 
-#### **modules/background/**
+#### **tslies/background/**
 Complete ML model ecosystem with modular architecture:
 - `mlobject.py`: Base class with common ML functionality
 - `losses.py`: Custom loss functions (spectral, Bayesian NLL)
@@ -135,28 +135,28 @@ Complete ML model ecosystem with modular architecture:
 - `knnpredictors.py`: K-Nearest Neighbors regressors (median/mean variants)
 - Automated hyperparameter optimization and model persistence
 
-#### **modules/trigger.py**
+#### **tslies/trigger.py**
 Advanced anomaly detection:
 - FOCuS-Gaussian and FOCuS-Poisson algorithm implementation (Kester Ward, 2021)
 - Z-score detection
 - Multi-variate time series trigger merging
 - Temporal clustering and filtering
 
-#### **modules/plotter.py** 
+#### **tslies/plotter.py** 
 Scientific visualization suite:
 - Automated anomaly plotting
 - LaTeX-formatted scientific notation
 - Multi-panel time series with residuals
 - Export-ready figures for pubblications
 
-#### **modules/utils.py**
+#### **tslies/utils.py**
 Essential utilities:
 - Data manipulation and masking
 - Time series processing
 - Logging and debugging
 - File I/O operations
 
-#### **modules/dataset.py**
+#### **tslies/dataset.py**
 Primary data processing:
 - Raw data file parsing and conversion
 - Multi-channel data handling
@@ -184,10 +184,10 @@ Intesa Sanpaolo application:
 1. **Import core TSLies modules**:
    ```python
    # Import core TSLies components
-   from modules.config import DIR, BACKGROUND_PREDICTION_FOLDER_NAME
-   from modules.background import FFNNPredictor, BNNPredictor
-   from modules.trigger import Trigger
-   from modules.plotter import Plotter
+   from tslies.config import DIR, BACKGROUND_PREDICTION_FOLDER_NAME
+   from tslies.background import FFNNPredictor, BNNPredictor
+   from tslies.trigger import Trigger
+   from tslies.plotter import Plotter
    ```
 
 2. **Train a background model**:
@@ -232,7 +232,7 @@ from applications.acd import main_ml, main_trigger, main_acd
 #### Model Comparison
 ```python
 # Compare multiple ML architectures
-from modules.background import (
+from tslies.background import (
     FFNNPredictor, 
     BNNPredictor, 
     SpectralDomainFFNNPredictor,
@@ -251,18 +251,47 @@ for ModelClass in models:
 
 ## Data Structure
 
-### Required Directory Layout
+### Directory Layout
+This is the package 
 ```
 TSLies/
-├── results/                 # Model outputs and analysis
+└── tslies/               # Core TSLies framework
+    └── background/
+    │   ├── mlobject
+    │   ├── losses
+    │   ├── ffnnpredictor
+    │   ├── rnnpredictor
+    │   ├── bnnpredictor
+    │   ├── pbnnpredictor
+    │   ├── abnnpredictor
+    │   ├── mcmcbnnpredictor
+    │   ├── spectraldomainffnnpredictor
+    │   └── knnpredictors
+    ├── config
+    ├── dataset
+    ├── explaiability
+    ├── plotter
+    ├── trigger
+    └── utils
+```
+
+This is the folder containing the main.py script with the workflow, and the data folder.
+```
+MyUseCase/
+├── data/pk/dataset.pk
+└── main.py
+```
+
+After the TSLies has finished the analysis, you should expect these new directories.
+```
+MyUseCase/
+├── data/pk/dataset.pk
+├── logs/                   # System logs and debugging
+├── results/                # Model outputs and anomalies detected
 │   └── YYYY-MM-DD/
 │       ├── background_prediction/
 │       └── trigger_results/
-├── logs/                   # System logs and debugging
-├── modules/               # Core TSLies framework
-├── applications/         # Domain-specific applications
-│   └── acd/             # ACD-specific modules and scripts
-└── pipelines/           # End-to-end workflows
+└── main.py
 ```
 
 ## Contributing
