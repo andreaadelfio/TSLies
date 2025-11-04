@@ -253,12 +253,10 @@ class Time:
         return start, end
 
 class Data():
-    """Class to handle data
-    """
-    logger = Logger('Data').get_logger()
     """
     A class that provides utility functions for data manipulation.
     """
+    logger = Logger('Data').get_logger()
 
     @logger_decorator(logger)
     @staticmethod
@@ -446,37 +444,6 @@ class File:
         if os.path.exists(path):
             return pd.read_pickle(path)
         return None
-    
-    @staticmethod
-    def add_smoothing_with_mean(tile_signal, window=30):
-        """This function adds the smoothed histograms to the signal dataframe."""
-        window = window if len(tile_signal) > window else len(tile_signal)
-        for h_name in set(tile_signal.keys()) - {'MET', 'datetime'}:
-            histc = tile_signal[h_name].to_list()
-            filtered_sig1 = np.convolve(histc, np.ones(window)/window, mode='same')
-            for i in range(window//2):
-                filtered_sig1[i] = np.mean(histc[:i+window//2])
-            for i in range(len(histc) - window//2, len(histc)):
-                filtered_sig1[i] = np.mean(histc[i-window//2:])
-            tile_signal[f'{h_name}_smooth'] = filtered_sig1
-        return tile_signal
-
-    @staticmethod
-    def add_smoothing_with_fft(tile_signal):
-        """This function adds the smoothed histograms to the signal dataframe."""
-        histx = tile_signal['MET']
-        time_step = histx[2] - histx[1]
-        nyquist_freq = 0.5 / time_step
-        for h_name in set(tile_signal.keys()) - {'MET', 'datetime'}:
-            histc = tile_signal[h_name].to_list()
-            freq_cut1 = np.mean(histc) * nyquist_freq / 3
-            sig_fft = fftpack.fft(histc)
-            sample_freq = fftpack.fftfreq(len(histc), d=time_step)
-            low_freq_fft1  = sig_fft.copy()
-            low_freq_fft1[np.abs(sample_freq) > freq_cut1] = 0
-            filtered_sig1  = np.array(fftpack.ifft(low_freq_fft1)).real
-            tile_signal[f'{h_name}_smooth'] = filtered_sig1
-        return tile_signal
 
     @logger_decorator(logger)
     @staticmethod
@@ -503,9 +470,9 @@ class File:
             dfs = [df[(df.loc[:, df.columns.difference(['MET'])] != 0).any(axis=1)] for df in dfs]
             if add_smoothing:
                 if mode == 'mean':
-                    dfs = [File.add_smoothing_with_mean(df, window=window) for df in dfs]
+                    dfs = [Maths.add_smoothing_with_mean(df, window=window) for df in dfs]
                 elif mode == 'fft':
-                    dfs = [File.add_smoothing_with_fft(df) for df in dfs]
+                    dfs = [Maths.add_smoothing_with_fft(df) for df in dfs]
             print(dfs[0].columns)
             merged_dfs = pd.concat(dfs, ignore_index=True).drop_duplicates('MET', ignore_index=True) # patch, trovare sorgente del bug
         return merged_dfs
@@ -546,67 +513,6 @@ class File:
         else:
             self.logger.error('Folder %s does not exist.', folder_path)
         return merged_dfs
-
-    # # @staticmethod
-    # @logger_decorator(logger)
-    # def read_dfs_from_weekly_csv_folder_dask(self, folder_path='', custom_sorter=lambda x: int(x.split('_w')[-1].split('.')[0]), cols_list=None, start=None, stop=None):
-    #     """
-    #     Read the dataframe from csv files in a folder.
-
-    #     Parameters:
-    #     ----------
-    #         folder_path (str, optional): The name of the folder to read the dataframe from.
-    #                                   Defaults to ''.
-
-    #     Returns:
-    #     -------
-    #         DataFrame: The dataframe read from the file.
-    #     """
-    #     if folder_path != '':
-    #         folder_path = os.path.join(DATA_FOLDER_NAME, folder_path)
-
-    #     folder_path = os.path.join(folder_path, 'csv')
-    #     self.logger.info('Reading from: %s.', folder_path)
-    #     if not os.path.exists(folder_path):
-    #         return None
-    #     dir_list = [os.path.join(folder_path, file) for file in os.listdir(folder_path) 
-    #         if file.endswith('.csv') and start <= int(file.split('_w')[-1].split('.')[0]) <= stop]
-    #     dir_list = sorted(dir_list, key=custom_sorter)
-    #     dfs = dask.dataframe.read_csv(dir_list, assume_missing=True)[cols_list] if cols_list else dask.dataframe.read_csv(dir_list, assume_missing=True)
-    #     dfs = dfs.drop_duplicates('MET') # patch, trovare sorgente del bug: perché ci sono duplicati?
-    #     dfs = dfs.repartition(npartitions=1000)
-    #     return dfs # patch, trovare sorgente del bug: perché ci sono duplicati?
-
-    # # @staticmethod
-    # @logger_decorator(logger)
-    # def read_dfs_from_weekly_pk_folder_dask(self, folder_path='', custom_sorter=lambda x: int(x.split('_w')[-1].split('.')[0]), cols_list=None, start=None, stop=None):
-    #     """
-    #     Read the dataframe from pickle files in a folder.
-
-    #     Parameters:
-    #     ----------
-    #         folder_path (str, optional): The name of the folder to read the dataframe from.
-    #                                   Defaults to ''.
-
-    #     Returns:
-    #     -------
-    #         DataFrame: The dataframe read from the file.
-    #     """
-    #     if folder_path != '':
-    #         folder_path = os.path.join(DATA_FOLDER_NAME, folder_path)
-
-    #     folder_path = os.path.join(folder_path, 'pk')
-    #     merged_dfs: dask.dataframe.DataFrame = None
-    #     self.logger.info('Reading from: %s.', folder_path)
-    #     if os.path.exists(folder_path):
-    #         dir_list = [os.path.join(folder_path, file) for file in os.listdir(folder_path) 
-    #             if file.endswith('.pk') and start <= int(file.split('_w')[-1].split('.')[0]) <= stop]
-    #         dir_list = sorted(dir_list, key=custom_sorter)
-    #         dfs = [dask.dataframe.from_pandas(pd.read_pickle(file)[cols_list], npartitions=100) if cols_list else dask.dataframe.from_pandas(pd.read_pickle(file), npartitions=100) for file in dir_list]
-    #         merged_dfs = dask.dataframe.concat(dfs)
-    #         print('after concat')
-    #         merged_dfs = merged_dfs.drop_duplicates('MET')  # patch, trovare sorgente del bug
-    #     return merged_dfs
 
     @logger_decorator(logger)
     @staticmethod
@@ -671,6 +577,44 @@ class File:
                 if len(df) != initial_len:
                     print(initial_len, len(df), os.path.basename(file))
                     # os.remove(file)
+
+class Maths:
+    """Class to handle maths operations
+    """
+    logger = Logger('Maths').get_logger()
+    
+    @logger_decorator(logger)
+    @staticmethod
+    def add_smoothing_with_mean(tile_signal, window=30):
+        """This function adds the smoothed histograms to the signal dataframe."""
+        window = window if len(tile_signal) > window else len(tile_signal)
+        for h_name in set(tile_signal.keys()) - {'MET', 'datetime'}:
+            histc = tile_signal[h_name].to_list()
+            filtered_sig1 = np.convolve(histc, np.ones(window)/window, mode='same')
+            for i in range(window//2):
+                filtered_sig1[i] = np.mean(histc[:i+window//2])
+            for i in range(len(histc) - window//2, len(histc)):
+                filtered_sig1[i] = np.mean(histc[i-window//2:])
+            tile_signal[f'{h_name}_smooth'] = filtered_sig1
+        return tile_signal
+
+    @logger_decorator(logger)
+    @staticmethod
+    def add_smoothing_with_fft(tile_signal):
+        """This function adds the smoothed histograms to the signal dataframe."""
+        histx = tile_signal['MET']
+        time_step = histx[2] - histx[1]
+        nyquist_freq = 0.5 / time_step
+        for h_name in set(tile_signal.keys()) - {'MET', 'datetime'}:
+            histc = tile_signal[h_name].to_list()
+            freq_cut1 = np.mean(histc) * nyquist_freq / 3
+            sig_fft = fftpack.fft(histc)
+            sample_freq = fftpack.fftfreq(len(histc), d=time_step)
+            low_freq_fft1  = sig_fft.copy()
+            low_freq_fft1[np.abs(sample_freq) > freq_cut1] = 0
+            filtered_sig1  = np.array(fftpack.ifft(low_freq_fft1)).real
+            tile_signal[f'{h_name}_smooth'] = filtered_sig1
+        return tile_signal
 
 if __name__ == '__main__':
     y_cols = ['top_low', 'top_middle', 'top_high', 'Xpos_low', 'Xpos_middle', 'Xpos_high', 'Xneg_low', 'Xneg_middle', 'Xneg_high', 'Ypos_low', 'Ypos_middle', 'Ypos_high', 'Yneg_low', 'Yneg_middle', 'Yneg_high']

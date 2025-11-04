@@ -44,7 +44,7 @@ Core packages include:
 - `keras==3.7.0"`
 - `numpy==1.26.4"`
 - `pandas==2.2.2"`
-- `scikit-learn==1.4.2"`
+- `scikit-learn`
 - `scipy==1.13.1"`
 - `matplotlib==3.8.4"`
 - `seaborn==0.13.2"`

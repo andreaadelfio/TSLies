@@ -10,17 +10,17 @@ authors = [
     {name = "Andrea Adelfio"}
 ]
 dependencies = [
-    "keras==3.7.0",
-    "matplotlib==3.8.4",
-    "numpy==1.26.4",
-    "pandas==2.2.2",
-    "scikit-learn==1.4.2",
-    "scipy==1.13.1",
-    "seaborn==0.13.2",
-    "tensorflow==2.18.0",
-    "tensorflow-probability==0.25.0",
-    "tf_keras==2.18.0",
-    "tqdm==4.66.4"
+    "keras>=3.7.0,<3.8",
+    "matplotlib>=3.8.4,<3.9",
+    "numpy>=1.26.4,<1.27",
+    "pandas>=2.2.2,<2.3",
+    "scikit-learn>=1.4.2,<1.5",
+    "scipy>=1.13.1,<1.14",
+    "seaborn>=0.13.2,<0.14",
+    "tensorflow>=2.18.0,<2.19",
+    "tensorflow-probability>=0.25.0,<0.26",
+    "tf_keras>=2.18.0,<2.19",
+    "tqdm>=4.66.4,<5"
 ]
 readme = "README.md"
 license = {text = "MIT"}
@@ -31,4 +31,4 @@ classifiers = [
 ]
 
 [tool.setuptools]
-packages = ["tslies", "tslies.background", "tslies.example"]
+packages = ["tslies", "tslies.background", "tslies.examples"]
