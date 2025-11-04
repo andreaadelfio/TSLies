@@ -1,19 +1,3 @@
-import os
-from tslies.config import set_dir
-
-set_dir('/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/examples/example2')
-
-from datetime import datetime
-
-now = datetime.now()
-DATE_FOLDER = now.strftime('%Y-%m-%d')
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
-
-DATA_FOLDER_NAME = os.path.join(dir_path, 'data')
-RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
-BACKGROUND_PREDICTION_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'background_prediction')
 
 from tslies.background.bnnpredictor import BNNPredictor
 from tslies.trigger import Trigger
@@ -47,7 +31,7 @@ def run_bnn(inputs_outputs, y_cols, cols_pred, x_cols):
         nn.create_model()
         nn.train()
         nn.update_summary()
-        Plotter.save(BACKGROUND_PREDICTION_FOLDER_NAME, params)
+        Plotter.save(params)
         break  # solo il primo per esempio
     return nn
 
@@ -59,7 +43,6 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path):
     # y_pred = File.read_df_from_file('results/2025-03-03/background_prediction/1644/BNNPredictor/0/pk/bkg')
     y_pred = None
     if y_pred is None or len(y_pred) == 0:
-        start, end = 0, -1
         batch_size = len(inputs_outputs_df)
         for i in range(0, len(inputs_outputs_df), batch_size):
             _, y_pred = nn.predict(start=i, end=i + batch_size, write_bkg=True, num_batches=1, save_predictions_plot=False)

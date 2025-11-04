@@ -11,20 +11,22 @@ import pandas as pd
 import bisect
 
 
+from .config import (
+    RESULTS_DIR,
+    ANOMALIES_DIR,
+    ANOMALIES_PLOTS_DIR,
+)
 from .plotter import Plotter
 from .utils import Data, Logger, logger_decorator
 
-now = pd.Timestamp.now()
-DATE_FOLDER = pd.Timestamp.date(now).strftime('%Y-%m-%d')
-TIME_FOLDER = pd.Timestamp.time(now).strftime('%H%M')
+if RESULTS_DIR is None or ANOMALIES_DIR is None or ANOMALIES_PLOTS_DIR is None:
+    raise RuntimeError(
+        "TSLies output directories are not initialised. Configure the base directory via "
+        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before using tslies.trigger."
+    )
 
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
-
-RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
-TRIGGER_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'anomalies')
-PLOT_TRIGGER_FOLDER_NAME = os.path.join(TRIGGER_FOLDER_NAME, TIME_FOLDER, 'plots')
+TRIGGER_FOLDER_NAME = str(ANOMALIES_DIR)
+PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
 
 
 

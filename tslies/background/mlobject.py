@@ -4,27 +4,30 @@ import itertools
 import pandas as pd
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple, Union, Optional
+from typing import List, Any, Tuple, Union, Optional
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow.keras as tf_keras
 from tensorflow.keras.models import load_model
 
+from ..config import (
+    RESULTS_DIR,
+    BACKGROUND_PREDICTION_DIR,
+    require_base_dir,
+)
 from ..plotter import Plotter
 from .losses import CustomLosses
 
-now = pd.Timestamp.now()
-DATE_FOLDER = pd.Timestamp.date(now).strftime('%Y-%m-%d')
-TIME_FOLDER = pd.Timestamp.time(now).strftime('%H%M')
+BASE_DIR_PATH = require_base_dir()
 
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
+if RESULTS_DIR is None or BACKGROUND_PREDICTION_DIR is None:
+    raise RuntimeError(
+        "TSLies output directories are not initialised. Configure the base directory via "
+        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before using ML components."
+    )
 
-RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
-BACKGROUND_PREDICTION_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'background_prediction')
-# DATA_LATACD_PROCESSED_FOLDER_NAME = os.path.join(dir_path, 'data', 'latacd_processed')
-DIR = dir_path
+BACKGROUND_PREDICTION_FOLDER_NAME = str(BACKGROUND_PREDICTION_DIR)
+DIR = str(BASE_DIR_PATH)
 
 class MLObject(ABC):
     """Abstract base class for Machine Learning models with standardized interface."""

@@ -6,6 +6,8 @@ import os
 import pprint
 import re
 import logging
+import warnings
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 import matplotlib.dates as mdates
 import pandas as pd
@@ -14,11 +16,21 @@ from scipy import fftpack
 import gc
 from tqdm import tqdm
 
+from .config import LOGS_DIR, DATA_DIR, get_base_dir, require_base_dir
+
+BASE_DIR_PATH = require_base_dir()
+if LOGS_DIR is None or DATA_DIR is None:
+    raise RuntimeError(
+        "TSLies directories are not initialised. Configure the base directory via "
+        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before "
+        "importing tslies.utils."
+    )
+
 USER = os.environ.get('USER', os.environ.get('USERNAME', 'default_user'))
-DIR = os.environ.get('TSLIES_DIR') or os.path.dirname(os.path.abspath(__file__))
-LOGGING_FOLDER_PATH = os.path.join(DIR, 'logs')
+DIR = str(BASE_DIR_PATH)
+LOGGING_FOLDER_PATH = str(LOGS_DIR)
 LOGGING_FILE_NAME = f'{USER}.log'
-DATA_FOLDER_NAME = os.path.join(DIR, 'data')
+DATA_FOLDER_NAME = str(DATA_DIR)
 
 
 
@@ -30,7 +42,7 @@ class Logger():
     def __init__(self, logger_name: str,
                  log_file_prefix: str = '',
                  log_file_name: str = LOGGING_FILE_NAME,
-                 log_folder_path: str = LOGGING_FOLDER_PATH,
+                 log_folder_path: str | os.PathLike[str] = LOGGING_FOLDER_PATH,
                  log_level: int = logging.DEBUG):
         """
         Initializes a Logger object.
@@ -48,13 +60,6 @@ class Logger():
         -------
             None
         """
-        if log_folder_path != LOGGING_FOLDER_PATH:
-            log_folder_path = os.path.join(DIR, log_folder_path)
-        if not os.path.exists(log_folder_path):
-            os.makedirs(log_folder_path, exist_ok=True)
-        if log_file_prefix:
-            log_file_prefix = f'{log_file_prefix}_'
-        self.log_file_name = os.path.join(log_folder_path, f'{log_file_prefix}{log_file_name}')
         self.log_level = log_level
         self.logger_name = logger_name
         self.logger = logging.getLogger(self.logger_name)
@@ -63,10 +68,34 @@ class Logger():
         self.formatter = logging.Formatter(self.format)
         for handler in self.logger.handlers[:]:
             self.logger.removeHandler(handler)
-        self.file_handler = logging.FileHandler(self.log_file_name)
-        self.file_handler.setLevel(self.log_level)
-        self.file_handler.setFormatter(self.formatter)
-        self.logger.addHandler(self.file_handler)
+
+        base_dir = get_base_dir()
+        folder_path = Path(log_folder_path)
+        if not folder_path.is_absolute() and base_dir is None:
+            warnings.warn(
+                'TSLies base directory is not configured. Logging output will be sent to stderr.',
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            stream_handler = logging.StreamHandler()
+            stream_handler.setLevel(self.log_level)
+            stream_handler.setFormatter(self.formatter)
+            self.logger.addHandler(stream_handler)
+            self.log_file_name = None
+            return
+
+        if not folder_path.is_absolute() and base_dir is not None:
+            folder_path = base_dir / folder_path
+        folder_path.mkdir(parents=True, exist_ok=True)
+        if log_file_prefix:
+            log_file_prefix = f'{log_file_prefix}_'
+        log_name = Path(log_file_name).name
+        self.log_file_name = folder_path / f'{log_file_prefix}{log_name}'
+        if self.log_file_name is not None:
+            self.file_handler = logging.FileHandler(self.log_file_name)
+            self.file_handler.setLevel(self.log_level)
+            self.file_handler.setFormatter(self.formatter)
+            self.logger.addHandler(self.file_handler)
 
     def get_logger(self):
         """

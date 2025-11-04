@@ -321,11 +321,11 @@ We welcome contributions to this Time Series Anomaly Detection Framework!
 ### Citation
 If you use TSLies in your research, please cite:
 ```
-@software{adelfio2024tslies,
+@software{adelfio2025tslies,
   author = {Adelfio, Andrea},
   title = {TSLies: Time Series Anomaly Detection Framework},
   url = {https://github.com/andreaadelfio/TSLies},
-  year = {2024},
+  year = {2025},
   institution = {INFN}
 }
 ```

@@ -1,20 +1,26 @@
 """
 This module contains the class to manage the acd dataset.
 """
-import os
 import numpy as np
 import pandas as pd
-from .utils import Time, Logger, logger_decorator, File
+from pathlib import Path
+from typing import Optional
 
-DIR = os.environ.get('TSLIES_DIR')
-DATA_LATACD_PROCESSED_FOLDER_NAME = os.path.join(DIR, 'data')
+from .config import DATA_DIR, get_base_dir
+from .utils import Time, Logger, logger_decorator, File
 
 class DatasetReader():
     """Class to read the dataset of runs and their properties"""
     logger = Logger('DatasetReader').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, h_names, data_dir = DATA_LATACD_PROCESSED_FOLDER_NAME, start = 0, end = -1):
+    def __init__(
+        self,
+        h_names,
+        data_dir: Optional[str | Path] = None,
+        start: int = 0,
+        end: int = -1,
+    ):
         """
         Initialize the DatasetReader object.
 
@@ -25,7 +31,25 @@ class DatasetReader():
         """
         self.start = start
         self.end = end if end != -1 else None
-        self.data_dir = data_dir
+
+        if data_dir is None:
+            resolved_dir = DATA_DIR
+            if resolved_dir is None:
+                raise RuntimeError(
+                    "TSLies base directory is not configured. Call tslies.config.set_base_dir(...) "
+                    "or set the TSLIES_DIR environment variable before accessing the dataset."
+                )
+        else:
+            resolved_dir = Path(data_dir)
+            if not resolved_dir.is_absolute():
+                base_dir = get_base_dir()
+                if base_dir is None:
+                    raise RuntimeError(
+                        "TSLies base directory is not configured, so relative data paths cannot be resolved."
+                    )
+                resolved_dir = base_dir / resolved_dir
+        resolved_dir = Path(resolved_dir)
+        self.data_dir = str(resolved_dir)
         self.h_names = h_names
         self.runs_times = {}
         self.runs_dict = {}

@@ -1,15 +1,3 @@
-import os
-from tslies.config import set_dir
-
-set_dir('tslies/examples/example1')
-
-from datetime import datetime
-
-now = datetime.now()
-DATE_FOLDER = now.strftime('%Y-%m-%d')
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
 
 import numpy as np
 import pandas as pd
@@ -198,4 +186,4 @@ if __name__ == '__main__':
     anomaly_detector.fit(timeseries_df, source_columns=['value_1', 'value_2'], target_columns=['value_3'])
     results_timeseries_df = anomaly_detector.apply(timeseries_df)
     print(results_timeseries_df.head())
-    print(len(results_timeseries_df[results_timeseries_df['anomaly'] == 1]))
+    print('Total anomalies detected:', len(results_timeseries_df[results_timeseries_df['anomaly'] == 1]))

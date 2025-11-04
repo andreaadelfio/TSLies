@@ -6,16 +6,30 @@ This module provides utilities for handling astronomical event catalogs
 domain-specific application built on the generic time series framework.
 """
 
-import os
 import glob
+from pathlib import Path
 import pandas as pd
 from astropy.io import fits
 from astropy.table import Table
 from astropy.time import Time, TimeDelta
 from astropy.table import vstack
 
+from tslies import config
 from tslies.utils import Logger, logger_decorator
 # from modules.config import DIR
+
+
+def _catalogs_root() -> Path:
+    catalogs_dir = config.CATALOGS_DIR
+    if catalogs_dir is None:
+        base_dir = config.get_base_dir()
+        if base_dir is None:
+            raise RuntimeError(
+                "Unable to resolve the TSLies base directory. Configure it via tslies.config.set_base_dir(...) "
+                "or set the TSLIES_DIR environment variable."
+            )
+        catalogs_dir = base_dir / 'catalogs'
+    return Path(catalogs_dir)
 
 class CatalogsUtils:
     def __init__(self):
@@ -121,8 +135,9 @@ class CatalogsReader:
 
     @logger_decorator(logger)
     def read_fits_file(self):
-        fits_file_path = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'total_catalog.fits')
-        file_paths = glob.glob(fits_file_path)
+        catalogs_dir = _catalogs_root()
+        fits_file_path = catalogs_dir / 'total_catalog.fits'
+        file_paths = glob.glob(str(fits_file_path))
         df = pd.DataFrame()
         for file_path in file_paths:
             with fits.open(file_path) as hdul:
@@ -137,29 +152,31 @@ class CatalogsReader:
 
 if __name__ == "__main__":
     cu = CatalogsUtils()
-    SVOM_FITS_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'SVOM.fits')
-    fits_table = cu.read_fits_file(SVOM_FITS_FILE_PATH)
+    catalogs_dir = _catalogs_root()
+
+    SVOM_FITS_FILE_PATH = catalogs_dir / 'SVOM.fits'
+    fits_table = cu.read_fits_file(str(SVOM_FITS_FILE_PATH))
     final_table = cu.extract_from_svom_fits(fits_table)
 
-    EP_FITS_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'EP.fits')
-    fits_table = cu.read_fits_file(EP_FITS_FILE_PATH)
+    EP_FITS_FILE_PATH = catalogs_dir / 'EP.fits'
+    fits_table = cu.read_fits_file(str(EP_FITS_FILE_PATH))
     final_table = vstack([final_table, cu.extract_from_ep_fits(fits_table)])
 
-    FermiGBMTrig_FITS_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'FermiGBMTrig.fits')
-    fits_table = cu.read_fits_file(FermiGBMTrig_FITS_FILE_PATH)
+    FermiGBMTrig_FITS_FILE_PATH = catalogs_dir / 'FermiGBMTrig.fits'
+    fits_table = cu.read_fits_file(str(FermiGBMTrig_FITS_FILE_PATH))
     final_table = vstack([final_table, cu.extract_from_fermigbm_fits(fits_table)])
 
-    SWIFT_FITS_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'SWIFT.txt')
-    txt_table = Table.read(SWIFT_FITS_FILE_PATH, format='ascii')
+    SWIFT_FITS_FILE_PATH = catalogs_dir / 'SWIFT.txt'
+    txt_table = Table.read(str(SWIFT_FITS_FILE_PATH), format='ascii')
     final_table = vstack([final_table, cu.extract_from_swift_fits(txt_table)])
 
-    FermiGBMBurst_FITS_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'FermiGBMBurstCat.fits')
-    fits_table = cu.read_fits_file(FermiGBMBurst_FITS_FILE_PATH)
+    FermiGBMBurst_FITS_FILE_PATH = catalogs_dir / 'FermiGBMBurstCat.fits'
+    fits_table = cu.read_fits_file(str(FermiGBMBurst_FITS_FILE_PATH))
     final_table = vstack([final_table, cu.extract_from_fermigbmburst_fits(fits_table)])
 
     final_table.sort('TRIGGER_TIME')
-    final_cat_FILE_PATH = os.path.join(os.environ['TSLIES_DIR'], 'catalogs', 'total_catalog.fits')
-    cu.create_fits_from_table(final_cat_FILE_PATH, final_table)
+    final_cat_FILE_PATH = catalogs_dir / 'total_catalog.fits'
+    cu.create_fits_from_table(str(final_cat_FILE_PATH), final_table)
 
     cr = CatalogsReader()
     final_table = cr.read_fits_file()
