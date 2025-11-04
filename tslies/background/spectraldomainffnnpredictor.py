@@ -9,7 +9,7 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
 
 class SpectralDomainFFNNPredictor(MLObject):
-    '''Feed-Forward Neural Network working in the frequency domain.'''
+    """Feed-Forward Neural Network working in the frequency domain."""
     logger = Logger('SpectralDomainFFNN').get_logger()
 
     @logger_decorator(logger)
@@ -18,7 +18,7 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the spectral-domain neural network model.'''
+        """Builds the spectral-domain neural network model."""
         self.nn_r = tf_keras.Sequential()
         self.nn_r.add(tf_keras.Input(shape=(len(self.x_cols),)))
         for units in list(self.units_for_layers):
@@ -32,7 +32,7 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
+        """Trains the model."""
         history = self.nn_r.fit(
             self.X_train, self.y_train,
             validation_split=0.3,
@@ -45,7 +45,7 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]):
-        '''Predicts the output and returns the result in time domain.'''
+        """Predicts the output and returns the result in time domain."""
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:

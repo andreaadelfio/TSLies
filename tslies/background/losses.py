@@ -6,28 +6,28 @@ from tensorflow_probability import distributions as tfd
 @tf_keras.utils.register_keras_serializable()
 class CustomLosses:
     def __init__(self, normalizations_dict):
-        '''The class for custom loss functions.'''
+        """The class for custom loss functions."""
         self.normalizations_dict = normalizations_dict
 
     def get_config(self):
-        '''Returns the configuration of the custom loss functions.'''
+        """Returns the configuration of the custom loss functions."""
         pass
 
     @tf_keras.utils.register_keras_serializable()
     def mae(self, y_true, y_pred):
-        '''The mean absolute error metric computed using the mean of the output.'''
+        """The mean absolute error metric computed using the mean of the output."""
         return tf.reduce_mean(tf.abs(y_true - y_pred))
 
     @tf_keras.utils.register_keras_serializable()
     def mae_bnn(self, y_true, y_pred):
-        '''The mean absolute error metric computed using the mean of the output.'''
+        """The mean absolute error metric computed using the mean of the output."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         return tf.reduce_mean(tf.abs(y_true - mean)) / self.normalizations_dict['mae']
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_stddev(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and standard deviation.'''
+        """The negative log likelihood loss function computed using the mean and standard deviation."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         var = y_pred[:, num_outputs:]
@@ -37,7 +37,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         mean = y_pred.mean()
         log_var = y_pred.variance()
         nll = 0.5 * log_var + 0.5 * tf.square(y_true - mean) * tf.exp(-log_var)
@@ -45,7 +45,7 @@ class CustomLosses:
     
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_bnn(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         stddev = y_pred[:, num_outputs:]
@@ -55,7 +55,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_var(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -69,7 +69,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_spectral(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -83,7 +83,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_abs(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -96,14 +96,14 @@ class CustomLosses:
         return tf.reduce_mean(nll)
     
     def spectral_loss_bnn(self, y_true, y_pred):
-        '''Spectral loss for Bayesian Neural Networks.'''
+        """Spectral loss for Bayesian Neural Networks."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         return self.spectral_loss(y_true, mean)
 
     @tf_keras.utils.register_keras_serializable()
     def aic(self, y_true, y_pred):
-        '''The Akaike Information Criterion loss function.'''
+        """The Akaike Information Criterion loss function."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -112,7 +112,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def negative_log_likelihood_huber(self, y_true, y_pred, delta=0.003):
-        '''Gaussian negative log-likelihood with a Huber loss for robustness.'''
+        """Gaussian negative log-likelihood with a Huber loss for robustness."""
         num_outputs = tf.shape(y_true)[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -125,14 +125,14 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def mse(self, y_true, y_pred):
-        '''The mean squared error metric computed using the mean of the output.'''
+        """The mean squared error metric computed using the mean of the output."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         return tf.reduce_mean(tf.square(y_true - mean)) / self.normalizations_dict['mse']
 
     @tf_keras.utils.register_keras_serializable()
     def r_squared(self, y_true, y_pred):
-        '''The R-squared metric computed using the mean of the output.'''
+        """The R-squared metric computed using the mean of the output."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         ss_res = tf.reduce_sum(tf.square(y_true - mean))
@@ -141,12 +141,12 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def NLL(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         return -y_pred.log_prob(y_true)
 
     @tf_keras.utils.register_keras_serializable()
     def nll_metric(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         mean = tf.reduce_mean(y_pred)
         log_var = tf.math.log(tf.math.reduce_variance(y_pred))
         nll = 0.5 * log_var + 0.5 * tf.square(y_true - mean) * tf.exp(-log_var)
@@ -154,22 +154,22 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def NLL_median(self, y_true, y_pred):
-        '''The negative log likelihood loss function computed using the mean and variance.'''
+        """The negative log likelihood loss function computed using the mean and variance."""
         return tfp.stats.percentile(y_pred.log_prob(y_true),50., interpolation='midpoint')
 
     @tf_keras.utils.register_keras_serializable()
     def MSE(self, y_true, y_pred):
-        '''The mean squared error loss function computed using the mean of the output.'''
+        """The mean squared error loss function computed using the mean of the output."""
         return tf.reduce_mean(tf.square(y_true - y_pred))
 
     @tf_keras.utils.register_keras_serializable()
     def MAE(self, y_true, y_pred):
-        '''The mean absolute error loss function computed using the mean of the output.'''
+        """The mean absolute error loss function computed using the mean of the output."""
         return tf.reduce_mean(tf.abs(y_true - y_pred))
 
     @tf_keras.utils.register_keras_serializable()
     def KL_divergence(self, posterior, prior):
-        '''The Kullback-Leibler divergence loss function.'''
+        """The Kullback-Leibler divergence loss function."""
         return tfp.distributions.kl_divergence(posterior, prior)
     
     @tf_keras.utils.register_keras_serializable()
@@ -182,7 +182,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def balanced_uncertainty_loss(self, y_true, y_pred, alpha=1.0, beta=0.1):
-        '''Balanced loss that prevents uncertainty collapse while maintaining accuracy.'''
+        """Balanced loss that prevents uncertainty collapse while maintaining accuracy."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -202,7 +202,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def evidential_loss(self, y_true, y_pred, coeff=1.0):
-        '''Evidential loss that learns uncertainty without collapse.'''
+        """Evidential loss that learns uncertainty without collapse."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -225,7 +225,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def adaptive_uncertainty_loss(self, y_true, y_pred, lambda_adapt=0.1):
-        '''Adaptive loss that adjusts uncertainty based on prediction quality.'''
+        """Adaptive loss that adjusts uncertainty based on prediction quality."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -247,7 +247,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def heteroscedastic_loss(self, y_true, y_pred, min_var=1e-6):
-        '''Heteroscedastic loss with minimum variance constraint.'''
+        """Heteroscedastic loss with minimum variance constraint."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -266,7 +266,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def kl_divergence_loss(self, y_true, y_pred):
-        '''The Kullback-Leibler divergence loss function.'''
+        """The Kullback-Leibler divergence loss function."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         stddev = y_pred[:, num_outputs:]
@@ -277,7 +277,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def mean_uncert(self, y_true, y_pred):
-        '''Mean predicted uncertainty (standard deviation) across all outputs.'''
+        """Mean predicted uncertainty (standard deviation) across all outputs."""
         num_outputs = y_true.shape[1]
         log_var = y_pred[:, num_outputs:]
         
@@ -288,7 +288,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def uncert_mae_ratio(self, y_true, y_pred):
-        '''Ratio between mean uncertainty and MAE - lower is better.'''
+        """Ratio between mean uncertainty and MAE - lower is better."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -304,7 +304,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def calibration_error(self, y_true, y_pred):
-        '''Calibration error - measures if predicted uncertainties match actual errors.'''
+        """Calibration error - measures if predicted uncertainties match actual errors."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -326,7 +326,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def prediction_interval_coverage(self, y_true, y_pred, confidence=0.68):
-        '''Coverage probability for prediction intervals (should match confidence level).'''
+        """Coverage probability for prediction intervals (should match confidence level)."""
         num_outputs = y_true.shape[1]
         mean = y_pred[:, :num_outputs]
         log_var = y_pred[:, num_outputs:]
@@ -349,7 +349,7 @@ class CustomLosses:
 
     @tf_keras.utils.register_keras_serializable()
     def sharpness_metric(self, y_true, y_pred):
-        '''Sharpness of prediction intervals - lower uncertainty is sharper.'''
+        """Sharpness of prediction intervals - lower uncertainty is sharper."""
         num_outputs = y_true.shape[1]
         log_var = y_pred[:, num_outputs:]
         
@@ -364,7 +364,7 @@ class CustomLosses:
         
     @tf_keras.utils.register_keras_serializable()
     def max_uncert(self, y_true, y_pred):
-        '''Maximum predicted uncertainty (standard deviation) across all outputs.'''
+        """Maximum predicted uncertainty (standard deviation) across all outputs."""
         num_outputs = y_true.shape[1]
         log_var = y_pred[:, num_outputs:]
         
@@ -375,7 +375,7 @@ class CustomLosses:
     
     @tf_keras.utils.register_keras_serializable()
     def min_uncert(self, y_true, y_pred):
-        '''Minimum predicted uncertainty (standard deviation) across all outputs.'''
+        """Minimum predicted uncertainty (standard deviation) across all outputs."""
         num_outputs = y_true.shape[1]
         log_var = y_pred[:, num_outputs:]
         
@@ -385,7 +385,7 @@ class CustomLosses:
         return tf.reduce_min(uncertainty)
     
     def get_loss_list(self):
-        '''Returns a dictionary of available loss functions.'''
+        """Returns a dictionary of available loss functions."""
         return {
             'mae': self.mae,
             'mae_bnn': self.mae_bnn,
@@ -420,5 +420,5 @@ class CustomLosses:
         }
     
     def get_metrics_list(self):
-        '''Returns a dictionary of available metrics.'''
+        """Returns a dictionary of available metrics."""
         return self.get_loss_list()

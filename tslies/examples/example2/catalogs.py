@@ -1,10 +1,10 @@
-'''
+"""
 ACD-specific module for astronomical event catalog management.
 
 This module provides utilities for handling astronomical event catalogs
 (GBM, LAT, etc.) specific to Fermi mission data analysis. This is a 
 domain-specific application built on the generic time series framework.
-'''
+"""
 
 import os
 import glob

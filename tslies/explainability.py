@@ -1,4 +1,4 @@
-'''This module contains functions to explain the model using LIME and SHAP.'''
+"""This module contains functions to explain the model using LIME and SHAP."""
 import matplotlib.pyplot as plt
 import shap
 import numpy as np
@@ -11,7 +11,7 @@ from .lime import lime_tabular
 from .plotter import Plotter
 
 def get_feature_importance(model_path, inputs_outputs_df, y_cols, x_cols, num_sample = 100, model = None, show=True, save=True):
-    '''Get the feature importance using LIME and SHAP and plots it with matplotlib barh.
+    """Get the feature importance using LIME and SHAP and plots it with matplotlib barh.
     
     Parameters:
     ----------
@@ -19,7 +19,7 @@ def get_feature_importance(model_path, inputs_outputs_df, y_cols, x_cols, num_sa
         inputs_outputs_df (pd.DataFrame): The input and output data.
         y_cols (list): The columns of the output data.
         x_cols (list): The columns of the input data.
-        show (bool): Whether to show the plot.'''
+        show (bool): Whether to show the plot."""
     X_test = inputs_outputs_df[x_cols]
     if model is None:
         model = load_model(model_path)

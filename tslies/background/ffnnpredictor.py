@@ -18,7 +18,7 @@ from .mlobject import MLObject
 
 
 class FFNNPredictor(MLObject):
-    '''The class for the Feed Forward Neural Network model.'''
+    """The class for the Feed Forward Neural Network model."""
     logger = Logger('FFNNPredictor').get_logger()
 
     @logger_decorator(logger)
@@ -27,7 +27,7 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Creates the model.'''
+        """Creates the model."""
         inputs = Input(shape=(self.X_train.shape[1],))
         for count, units in enumerate(list(self.units_for_layers)):
             hidden = Dense(units, activation='relu')(inputs if count == 0 else hidden)
@@ -55,7 +55,7 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
+        """Trains the model."""
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -94,7 +94,7 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start:str|int = 0, end:str|int = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
@@ -106,7 +106,7 @@ class FFNNPredictor(MLObject):
             num_batches (int): The batch size for the prediction. Default is 1.
             save_predictions_plot (bool): Whether to save the predictions plot. Default is `False`.
             support_variables (list): The support variables to plot.
-        '''
+        """
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()

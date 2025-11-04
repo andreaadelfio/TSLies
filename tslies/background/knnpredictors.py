@@ -1,7 +1,7 @@
-'''
+"""
 K-Nearest Neighbors predictors for time series anomaly detection.
 Contains implementations of median and mean-based KNN regressors.
-'''
+"""
 import pandas as pd
 import numpy as np
 from sklearn.multioutput import MultiOutputRegressor
@@ -11,12 +11,12 @@ from ..utils import Logger, logger_decorator
 
 
 class MedianKNeighborsRegressor(KNeighborsRegressor):
-    '''The class for the Median K-Nearest Neighbors model.'''
+    """The class for the Median K-Nearest Neighbors model."""
     logger = Logger('MedianKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
     def predict(self, X):
-        '''Predict the target for the provided data.
+        """Predict the target for the provided data.
 
         Parameters
         ----------
@@ -28,7 +28,7 @@ class MedianKNeighborsRegressor(KNeighborsRegressor):
         -------
         y : ndarray of shape (n_queries,) or (n_queries, n_outputs), dtype=int
             Target values.
-        '''
+        """
         if self.weights == "uniform":
             # In that case, we do not need the distances to perform
             # the weighting so we do not compute them.
@@ -53,7 +53,7 @@ class MedianKNeighborsRegressor(KNeighborsRegressor):
 
 
 class MultiMedianKNeighborsRegressor():
-    '''The class for the Multi Median K-Nearest Neighbors model.'''
+    """The class for the Multi Median K-Nearest Neighbors model."""
     logger = Logger('MultiMedianKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
@@ -89,7 +89,7 @@ class MultiMedianKNeighborsRegressor():
 
 
 class MultiMeanKNeighborsRegressor():
-    '''The class for the Multi Mean K-Nearest Neighbors model.'''
+    """The class for the Multi Mean K-Nearest Neighbors model."""
     logger = Logger('MultiMeanKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)

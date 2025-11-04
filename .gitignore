@@ -1,7 +1,8 @@
-/tslies/example/results/
-/tslies/example/logs/
-/tslies/example/data
-/tslies/example/__pycache__/
+/tslies/examples/*/results/
+/tslies/examples/*/logs/
+/tslies/examples/*/data
+/tslies/examples/*/catalogs
+/tslies/examples/*/__pycache__/
 /tslies/__pycache__/
 /__pycache__/
 *.pyc

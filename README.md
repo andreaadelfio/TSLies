@@ -37,15 +37,18 @@ pip install -e .
 
 ### Python Dependencies
 Core packages include:
-- `tensorflow>=2.16.0` (neural networks)
-- `tensorflow-probability>=0.23.0` (Bayesian models)
-- `tf-keras>=2.16.0` (Keras integration)
-- `pandas>=1.3.0` (data manipulation)
-- `scikit-learn>=1.0.0` (classical ML)
-- `matplotlib>=3.5.0` (visualization)
-- `seaborn>=0.11.0` (advanced plotting)
-- `numpy>=1.21.0` (numerical computing)
-- `astropy>=5.0.0` (astronomical data formats)
+
+- `tensorflow==2.18.0"`
+- `tensorflow-probability==0.25.0"`
+- `tf_keras==2.18.0"`
+- `keras==3.7.0"`
+- `numpy==1.26.4"`
+- `pandas==2.2.2"`
+- `scikit-learn==1.4.2"`
+- `scipy==1.13.1"`
+- `matplotlib==3.8.4"`
+- `seaborn==0.13.2"`
+- `tqdm==4.66.4"`
 
 ## Main Features
 
@@ -311,6 +314,7 @@ We welcome contributions to this Time Series Anomaly Detection Framework!
 - **FOCuS Algorithm**: Ward (2021)
 - **Research Community**: Open-source machine learning libraries and frameworks
 - **Computing Resources**: High-performance computing support
+- **ICSC**: 
 
 ---
 
@@ -327,5 +331,10 @@ If you use TSLies in your research, please cite:
 ```
 
 <hr>
+
+### To-do
+- review docs
+- check dependencies
+- check __init__ files
 
 [Go to Top](#table-of-contents)

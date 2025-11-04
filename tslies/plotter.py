@@ -1,6 +1,6 @@
-'''
+"""
 Plotter module for plotting data points and curves.
-'''
+"""
 import os
 from datetime import timedelta
 import gc
@@ -30,14 +30,14 @@ PLOT_TRIGGER_FOLDER_NAME = os.path.join(TRIGGER_FOLDER_NAME, TIME_FOLDER, 'plots
 
 
 class Plotter:
-    '''
+    """
     This class provides methods for plotting data points and curves.
-    '''
+    """
     logger = Logger('Plotter').get_logger()
     
     @logger_decorator(logger)
     def __init__(self, x = None, y = None, df: pd.DataFrame = None, xy: dict = None, label = '', latex = False):
-        '''
+        """
         Initialize the Plotter object.
 
         Parameters:
@@ -47,7 +47,7 @@ class Plotter:
             df (pd.DataFrame): The y-coordinates of the data points (default: None).
             xy (dict): A dictionary of x, y, and smooth y values for multiple curves (default: None).
             label (str): The label for the plot (default: '').
-        '''
+        """
         self.x = x
         self.y = y
         self.df = df
@@ -63,14 +63,14 @@ class Plotter:
 
     # @logger_decorator(logger)
     # def plot_tiles(self, marker = '-', lw = 0.2, with_smooth = False, show = True):
-    #     '''
+    #     """
     #     Plot multiple curves as tiles.
 
     #     Parameters:
     #     ----------
     #         lw (float): Line width of the curves (default: 0.1).
     #         with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-    #     '''
+    #     """
     #     i = 0
     #     _, axs = plt.subplots(len(self.xy), 1, sharex=True)
     #     plt.tight_layout(pad = 0.4)
@@ -88,14 +88,14 @@ class Plotter:
 
     @logger_decorator(logger)
     def df_plot_corr_tiles(self, x_col, excluded_cols = None, marker = '-', ms = 1, lw = 0.1, smoothing_key = 'smooth', show = True):
-        '''
+        """
         Plot multiple curves as tiles.
 
         Parameters:
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-        '''
+        """
         if not excluded_cols:
             excluded_cols = []
         df_columns = [column for column in self.df.columns if f'_{smoothing_key}' not in column and column not in excluded_cols and column != 'datetime']
@@ -136,14 +136,14 @@ class Plotter:
 
     @logger_decorator(logger)
     def df_plot_tiles(self, y_cols, x_col, latex_y_cols=None, top_x_col=None, excluded_cols=None, init_marker=',', lw=0.1, smoothing_key='smooth', show=True, save=False, units=None, show_std=True, figsize=(12, 6)):
-        '''
+        """
         Plot multiple curves as tiles.
 
         Parameters:
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-        '''
+        """
         if units is None:
             units = {}
         if not excluded_cols:
@@ -263,7 +263,7 @@ class Plotter:
 
     @logger_decorator(logger)
     def plot_correlation_matrix(self, show = True, save = False):
-        '''Function to plot the correlation matrix.'''
+        """Function to plot the correlation matrix."""
         correlations = self.df.corr()
         plt.figure(figsize=(18, 18), num='correlations_matrix')
         sns.heatmap(correlations, annot=True, cmap='coolwarm', fmt=".2f")
@@ -277,7 +277,7 @@ class Plotter:
 
     @logger_decorator(logger)
     def plot_confusion_matrix(self, y_true, y_pred, show = True):
-        '''Function to plot the confusion matrix.'''
+        """Function to plot the confusion matrix."""
         cm = confusion_matrix(y_true, y_pred)
         plt.figure(figsize=(10, 8), num='confusion_matrix')
         sns.heatmap(cm, annot=True, cmap='coolwarm', fmt=".2f")
@@ -294,7 +294,7 @@ class Plotter:
     
     @logger_decorator(logger)
     def plot_anomalies_in_catalog(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, only_in_catalog=True, save=True, show=False, extension='png', units={}, latex_y_cols={}, detections_file_path='', catalog=None):
-        '''Plots the anomalies passed as `df` in Plotter.'''
+        """Plots the anomalies passed as `df` in Plotter."""
         
         detections_df = self.read_detections_files(detections_file_path)
         
@@ -482,7 +482,7 @@ class Plotter:
     
     @logger_decorator(logger)
     def plot_anomalies(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, save=True, show=False, extension='png', units={}, latex_y_cols={}):
-        '''Plots the anomalies passed as `df` in Plotter.'''
+        """Plots the anomalies passed as `df` in Plotter."""
         for an_time, anomalies in tqdm(self.df.items(), desc=f'Plotting anomalies with {trigger_algo_type}'):
             faces = list(anomalies.keys())
             
@@ -597,13 +597,13 @@ class Plotter:
     @logger_decorator(logger)
     @staticmethod
     def show():
-        '''Shows the plots'''
+        """Shows the plots"""
         plt.show()
 
     @logger_decorator(logger)
     @staticmethod
     def save(folder_name = '.', params = None, indexes: tuple = None):
-        '''Saves the plots'''
+        """Saves the plots"""
         folder_name = os.path.dirname(params['model_path']) if params else folder_name
         for i in plt.get_fignums():
             title = plt.figure(i).get_label()

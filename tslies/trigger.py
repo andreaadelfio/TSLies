@@ -1,6 +1,6 @@
-'''
+"""
 This module contains the implementation of the FOCuS algorithm for change point detection.
-'''
+"""
 import os
 from math import log
 import multiprocessing
@@ -29,10 +29,10 @@ PLOT_TRIGGER_FOLDER_NAME = os.path.join(TRIGGER_FOLDER_NAME, TIME_FOLDER, 'plots
 
 
 class Curve:
-    '''
+    """
     From the original python implementation of
     FOCuS Poisson by Kester Ward (2021). All rights reserved.
-    '''
+    """
 
     def __init__(self, k_T, lambda_1, t=0):
         self.a = k_T
@@ -153,10 +153,10 @@ class Trigger:
 
 
     def focus_step_curve(self, curve_list, k_T, lambda_1):
-        '''
+        """
         From the original python implementation of
         FOCuS Poisson by Kester Ward (2021). All rights reserved.
-        '''
+        """
         if not curve_list:  # list is empty
             if k_T <= lambda_1:
                 return [], 0., 0
@@ -188,17 +188,17 @@ class Trigger:
         return new_curve_list, global_max, time_offset
 
     def trigger_face_z_score(self, signal, face, reset_indices, threshold):
-        '''
+        """
         Calculates the z-score of the signal and the offset of the change point.
-        '''
+        """
         result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0}
         return result
 
     def trigger_gauss_focus(self, signal, face, reset_indices, threshold):
-        '''
+        """
         From the original python implementation of
         FOCuS Poisson by Kester Ward (2021). All rights reserved.
-        '''
+        """
         result = {f'{face}_offset': [], f'{face}_triggered': [], f'{face}_significance': []}
         curve_list = []
         
@@ -247,7 +247,7 @@ class Trigger:
 
     @logger_decorator(logger)
     def run(self, reset_condition=None, use_multiprocessing=True):
-        '''Run the trigger algorithm on the dataset.
+        """Run the trigger algorithm on the dataset.
 
         Args:
             `tiles_df` (pd.DataFrame): dataframe containing the data
@@ -256,7 +256,7 @@ class Trigger:
 
         Returns:
             dict: dict containing the anomalies
-        '''
+        """
         if not os.path.exists(TRIGGER_FOLDER_NAME):
             os.makedirs(TRIGGER_FOLDER_NAME)
         if not os.path.exists(PLOT_TRIGGER_FOLDER_NAME):
@@ -415,7 +415,7 @@ class Trigger:
         Plotter(df = self.merged_anomalies).plot_anomalies_in_catalog(self.trigger_type, support_vars, self.thresholds, self.tiles_df, self.y_cols, self.y_cols_pred, only_in_catalog=plot_only_in_catalog, show=show, units=self.units, latex_y_cols=self.latex_y_cols, detections_file_path=self.detections_file_path, catalog=catalog)
             
     def is_mergeable(self, start: int, merged_starts: list, tolerance=60) -> tuple[int, int]:
-        '''Check if mergeable using binary search on sorted list.'''
+        """Check if mergeable using binary search on sorted list."""
         left = bisect.bisect_left(merged_starts, start - tolerance)
         right = bisect.bisect_right(merged_starts, start + tolerance)
         for i in range(left, right):

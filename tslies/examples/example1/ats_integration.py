@@ -1,15 +1,15 @@
-# import os
-# from tslies.config import set_dir
+import os
+from tslies.config import set_dir
 
-# set_dir('tslies/example')
+set_dir('tslies/examples/example1')
 
-# from datetime import datetime
+from datetime import datetime
 
-# now = datetime.now()
-# DATE_FOLDER = now.strftime('%Y-%m-%d')
-# dir_path = os.environ.get('TSLIES_DIR')
-# if dir_path is None:
-#     raise ValueError("TSLIES_DIR not set")
+now = datetime.now()
+DATE_FOLDER = now.strftime('%Y-%m-%d')
+dir_path = os.environ.get('TSLIES_DIR')
+if dir_path is None:
+    raise ValueError("TSLIES_DIR not set")
 
 import numpy as np
 import pandas as pd
@@ -119,6 +119,7 @@ class BNNAnomalyDetector(AnomalyDetector):
     def apply(self, data, trigger_type='focus', thresholds=None) -> pd.DataFrame:
         """
         Apply the trained BNN model to the provided time-series data and detect anomalies.
+        
         Parameters
         ----------
         data : pandas.DataFrame

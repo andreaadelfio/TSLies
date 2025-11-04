@@ -1,7 +1,7 @@
 import os
 from tslies.config import set_dir
 
-set_dir('/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/example')
+set_dir('/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/examples/example2')
 
 from datetime import datetime
 
@@ -27,7 +27,7 @@ from catalogs import CatalogsReader
 
 
 def run_bnn(inputs_outputs, y_cols, cols_pred, x_cols):
-    '''Runs the neural network model'''
+    """Runs the neural network model"""
     nn = BNNPredictor(inputs_outputs, y_cols, x_cols, cols_pred, latex_y_cols, units, False)
     hyperparams_combinations = { # the hyperparams_combinations is meant to fast tests with different settings
         'units_for_layers' : ([90], [90], [90], [70], [50]),
@@ -52,7 +52,7 @@ def run_bnn(inputs_outputs, y_cols, cols_pred, x_cols):
     return nn
 
 def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path):
-    '''Runs the model'''
+    """Runs the model"""
     nn = BNNPredictor(inputs_outputs_df, y_cols, x_cols, y_cols_pred, latex_y_cols, units)
     nn.set_model(model_path=model_path, compile=False)
     nn.load_scalers()
@@ -68,8 +68,7 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path):
     for face, face_pred in zip(y_cols, y_pred_cols):
         tiles_df[f'{face}_norm'] = (tiles_df[face] - tiles_df[face_pred]) / tiles_df[f'{face}_std']
 
-    diff = tiles_df['MET'].diff()
-    reset = diff > 60
+    reset = tiles_df['MET'].diff() > 60
     trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='focus', units=units, latex_y_cols=latex_y_cols)
     trigger.run(reset_condition=reset)
     merged_anomalies, return_df = trigger.identify_and_merge_triggers(merge_interval=60)
@@ -78,7 +77,7 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path):
 
 
 def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
-    '''Runs the model'''
+    """Runs the model"""
     import pandas as pd
     tiles_df = inputs_outputs_df.copy()
     stats = []

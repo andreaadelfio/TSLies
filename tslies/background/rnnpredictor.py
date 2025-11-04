@@ -32,7 +32,7 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def reshape_data(self, x, y):
-        '''Reshapes the data for the RNN model.'''
+        """Reshapes the data for the RNN model."""
         y = y[self.params['timesteps']:]
         x = np.array([x[i:i + self.params['timesteps']] for i in np.arange(len(x) - self.params['timesteps'])])
         x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2]))
@@ -40,7 +40,7 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Creates the model.'''
+        """Creates the model."""
         
         inputs = Input(shape=(None, len(self.x_cols)))
         hidden = LSTM(90)(inputs)
@@ -69,7 +69,7 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
+        """Trains the model."""
         self.X_train, self.y_train = self.reshape_data(self.X_train, self.y_train)
         self.X_test, self.y_test = self.reshape_data(self.X_test, self.y_test)
         
@@ -118,14 +118,14 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. (Default is 0).
             end (int): The ending index. (Defualt is -1).
             write (bool): If the predicted and original dataset will be written in a file. (Defualt is True)
-            batched (bool): If the dataset will be modeled in batch. (Defualt is False)'''
+            batched (bool): If the dataset will be modeled in batch. (Defualt is False)"""
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()

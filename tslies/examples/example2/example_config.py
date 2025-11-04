@@ -1,7 +1,7 @@
-'''
+"""
 Configuration file to identify features and targets between the dataframe columns.
 Defines column mappings, units, and visualization settings for time series analysis.
-'''
+"""
 
 h_names = ['hist_top', 'hist_Xpos', 'hist_Xneg', 'hist_Ypos', 'hist_Yneg']
 # h_names = ['histNorm_top', 'histNorm_Xpos', 'histNorm_Xneg', 'histNorm_Ypos', 'histNorm_Yneg']

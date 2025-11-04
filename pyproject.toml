@@ -10,18 +10,17 @@ authors = [
     {name = "Andrea Adelfio"}
 ]
 dependencies = [
-    "pandas",
-    "numpy",
-    "tensorflow",
-    "tensorflow-probability",
-    "keras",
-    "tf_keras",
-    "seaborn",
-    "matplotlib",
-    "scipy",
-    "tqdm",
-    "scikit-learn",
-    "scikit-image"
+    "keras==3.7.0",
+    "matplotlib==3.8.4",
+    "numpy==1.26.4",
+    "pandas==2.2.2",
+    "scikit-learn==1.4.2",
+    "scipy==1.13.1",
+    "seaborn==0.13.2",
+    "tensorflow==2.18.0",
+    "tensorflow-probability==0.25.0",
+    "tf_keras==2.18.0",
+    "tqdm==4.66.4"
 ]
 readme = "README.md"
 license = {text = "MIT"}

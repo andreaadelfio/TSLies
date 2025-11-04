@@ -17,7 +17,7 @@ from .mlobject import MLObject
 
 
 class BNNPredictor(MLObject):
-    '''The class for the Bayesian Neural Network model.'''
+    """The class for the Bayesian Neural Network model."""
     logger = Logger('BNNPredictor').get_logger()
 
     @logger_decorator(logger)
@@ -26,7 +26,7 @@ class BNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the Bayesian Neural Network model.'''
+        """Builds the Bayesian Neural Network model."""
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols), )),
@@ -43,7 +43,7 @@ class BNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
+        """Trains the model."""
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -54,13 +54,13 @@ class BNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. Default is 0.
             end (int): The ending index. Defualt is -1.
-            '''
+            """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:
