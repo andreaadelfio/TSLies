@@ -27,8 +27,8 @@ from .mlobject import MLObject
 class RNNPredictor(MLObject):
     logger = Logger('RNN').get_logger()
 
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def reshape_data(self, x, y):
@@ -84,7 +84,7 @@ class RNNPredictor(MLObject):
             call_lr = LearningRateScheduler(self.scheduler)
             callbacks = [es, mc, call_lr]
         history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs,
-                        validation_split=0.3, callbacks=callbacks)
+                        validation_split=0.3, callbacks=self.callbacks)
         
         nn_r = load_model(self.model_path)
 
@@ -163,6 +163,6 @@ class RNNPredictor(MLObject):
                 File.write_df_on_file(df_ori, os.path.join(path, 'frg'))
         if save_predictions_plot:
             y_pred = y_pred.assign(**{col: y_pred[cols_init] for col, cols_init in zip(self.y_pred_cols, self.y_cols)}).drop(columns=self.y_cols)
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred)
             self.save_predictions_plots(tiles_df, start, end, self.params)
         return df_ori, y_pred

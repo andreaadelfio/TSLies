@@ -22,8 +22,8 @@ class FFNNPredictor(MLObject):
     logger = Logger('FFNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
@@ -56,25 +56,11 @@ class FFNNPredictor(MLObject):
     @logger_decorator(logger)
     def train(self):
         '''Trains the model.'''
-        
-        es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002, 
-                           patience=10, start_from_epoch=190)
-        mc = ModelCheckpoint(self.model_path, 
-                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
-        # batch_print_callback = LambdaCallback(on_epoch_end=lambda epoch,logs: self.predict(start='2024-05-08 20:30:00', end='2024-05-08 23:40:00', write_bkg=False, save_predictions_plot=True))
-        cc = self.custom_callback(self, 2)
-
-        if not self.lr:
-            callbacks = [es, mc, cc]
-        else:
-            call_lr = LearningRateScheduler(self.scheduler)
-            callbacks = [es, mc, call_lr, cc]
-
         if self.with_generator:
-            history = self.nn_r.fit(self.df_data, epochs=self.epochs, batch_size=32, validation_split=0.3, callbacks=callbacks)
+            raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
             history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs,
-                            validation_split=0.3, callbacks=callbacks)
+                            validation_split=0.3, callbacks=self.callbacks)
         
         nn_r = load_model(self.model_path)
 

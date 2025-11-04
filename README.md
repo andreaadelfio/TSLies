@@ -193,7 +193,7 @@ Intesa Sanpaolo application:
 2. **Train a background model**:
    ```python
    # Create and train a neural network background model
-   model = FFNNPredictor(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols)
+   model = FFNNPredictor(df_data, y_cols, x_cols, y_pred_cols)
    model.set_hyperparams(params)
    model.create_model()
    history = model.train()
@@ -202,7 +202,7 @@ Intesa Sanpaolo application:
 3. **Run anomaly detection**:
    ```python
    # Apply FOCuS algorithm for changepoint detection
-   trigger = Trigger(tiles_df, y_cols, y_pred_cols, y_cols_raw, units, latex_y_cols)
+   trigger = Trigger(tiles_df, y_cols, y_pred_cols, units, latex_y_cols)
    anomalies, significance_df = trigger.run(thresholds, type='focus')
    ```
 

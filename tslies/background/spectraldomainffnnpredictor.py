@@ -13,8 +13,8 @@ class SpectralDomainFFNNPredictor(MLObject):
     logger = Logger('SpectralDomainFFNN').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, units=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
@@ -33,14 +33,12 @@ class SpectralDomainFFNNPredictor(MLObject):
     @logger_decorator(logger)
     def train(self):
         '''Trains the model.'''
-        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path, monitor='val_loss', save_best_only=True)
-
         history = self.nn_r.fit(
             self.X_train, self.y_train,
             validation_split=0.3,
             batch_size=self.bs,
             epochs=self.epochs,
-            callbacks=[mc, self.custom_callback(self)]
+            callbacks=self.callbacks
         )
 
         return history
@@ -69,7 +67,7 @@ class SpectralDomainFFNNPredictor(MLObject):
             File.write_df_on_file(y_pred_df, os.path.join(path, 'bkg'))
 
         if save_predictions_plot:
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred_df)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred_df)
             self.save_predictions_plots(tiles_df, start, end, self.params)
 
         return df_data[self.y_cols], y_pred_df

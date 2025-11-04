@@ -29,8 +29,7 @@ DIR = dir_path
 class MLObject(ABC):
     '''Abstract base class for Machine Learning models with standardized interface.'''
     def __init__(self, df_data: pd.DataFrame, y_cols: List[str], x_cols: List[str], 
-                 y_cols_raw: List[str], y_pred_cols: List[str], y_smooth_cols: List[str], 
-                 latex_y_cols: Optional[List[str]] = None, units: Optional[List[int]] = None, with_generator: bool = False):
+                 y_pred_cols: Optional[List[str]] = None, latex_y_cols: Optional[List[str]] = None, units: Optional[List[int]] = None, with_generator: bool = False):
         self.model_name = self.__class__.__name__
         self.training_date = pd.Timestamp.time(pd.Timestamp.now()).strftime('%H%M')
         print(f'{self.model_name} - {self.training_date}')
@@ -39,9 +38,7 @@ class MLObject(ABC):
         self.x_cols = x_cols
         print(f'x_cols: {x_cols}')
         print(f'y_cols: {y_cols}')
-        self.y_cols_raw = y_cols_raw
-        self.y_pred_cols = y_pred_cols
-        self.y_smooth_cols = y_smooth_cols
+        self.y_pred_cols = y_pred_cols or [col + '_pred' for col in y_cols]
         self.latex_y_cols = latex_y_cols or y_cols
         self.units = units or {}
 
@@ -82,6 +79,7 @@ class MLObject(ABC):
         self.metrics = None
         self.epochs = None
         self.mae_tr_list = None
+        self.callbacks = None
 
     def get_hyperparams_combinations(self, hyperparams_combinations:dict, use_previous:bool=False) -> list:
         '''Trims the hyperparameters combinations to avoid training duplicate models.
@@ -258,6 +256,16 @@ class MLObject(ABC):
             if metric in metrics_functions:
                 metrics_list.append(metrics_functions[metric])
         self.metrics = metrics_list
+
+    def set_callbacks(self):
+        '''Sets predefined and custom callbacks. '''
+        # es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
+        #                    patience=10, start_from_epoch=190)
+        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path,
+                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
+        # call_lr = LearningRateScheduler(self.scheduler)
+        # custom_callback = self.custom_callback(self, 5)
+        self.callbacks = [mc]
 
     def scheduler(self, epoch, lr_actual):
         '''The learning rate scheduler.'''

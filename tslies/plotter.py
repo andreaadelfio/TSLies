@@ -135,7 +135,7 @@ class Plotter:
             plt.show()
 
     @logger_decorator(logger)
-    def df_plot_tiles(self, y_cols, x_col, latex_y_cols, top_x_col = None, excluded_cols = None, init_marker = ',', lw = 0.1, smoothing_key = 'smooth', show = True, save = False, units = None, show_std=True, figsize=(12, 6)):
+    def df_plot_tiles(self, y_cols, x_col, latex_y_cols=None, top_x_col=None, excluded_cols=None, init_marker=',', lw=0.1, smoothing_key='smooth', show=True, save=False, units=None, show_std=True, figsize=(12, 6)):
         '''
         Plot multiple curves as tiles.
 
@@ -247,20 +247,6 @@ class Plotter:
             fig.savefig(
                 os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'Output.png'),
                 dpi=200, bbox_inches='tight')
-            
-
-    # @logger_decorator(logger)
-    # def plot_pred_true(self, tiles_df, col_pred=['top_pred', 'Xpos_pred', 'Xneg_pred', 'Ypos_pred', 'Yneg_pred'], y_cols_raw=['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg']):
-    #     with sns.plotting_context("talk"):
-    #         fig = plt.figure("pred_vs_true", layout="tight")
-    #         fig.set_size_inches(24, 12)
-    #         plt.axis('equal')
-    #         plt.plot(tiles_df[y_cols_raw], tiles_df[col_pred], '.', alpha=0.2)
-    #         min_y, max_y = min(tiles_df[col_pred].min()), max(tiles_df[col_pred].max())
-    #         plt.plot([min_y, max_y], [min_y, max_y], '-')
-    #         plt.xlabel('True signal')
-    #         plt.ylabel('Predicted signal')
-    #     plt.legend(y_cols_raw)
 
     @logger_decorator(logger)
     def plot_history(self, history):
@@ -369,8 +355,9 @@ class Plotter:
             end_xlim = tiles_df['datetime'][anomaly_end] + timedelta(seconds=anomaly_delta-1)
 
             tiles_df_subset = tiles_df[start:end]
-
-            latex_faces = [latex_y_cols[col] for col in faces]
+            if not latex_y_cols:
+                latex_y_cols = {col: col for col in faces if col in tiles_df_subset}
+            latex_faces = [f'${latex_y_cols[col]}$' for col in faces if col in latex_y_cols]
             i = 0
             for face, face_pred in zip(y_cols, y_pred_cols):
                 formatter = mticker.ScalarFormatter(useMathText=True)
@@ -429,12 +416,12 @@ class Plotter:
                 ax_residuals.axhline(thresholds[face], color="darkorange", ls='-.', label=f"${thresholds[face]}\\sigma$ threshold")
                 ax_residuals.plot(tiles_df_subset['datetime'], tiles_df_subset[f'{face}_significance'],
                                 color="blue", label=f"$S_{{{trigger_algo_type}}}$", lw=0.7)
-                ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face], label=f'${latex_y_cols[face]}$',
+                ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face], label=f'${latex_y_cols[face]}$' if face in latex_y_cols else "N/A",
                             color=face_color)
                 ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face_pred], label='background',
                             color='red')
                 ax_signal.yaxis.set_major_formatter(formatter)
-                ax_signal.set_ylabel(f'$[{units[face]}]$')
+                ax_signal.set_ylabel(f'$[{units[face]}]$' if face in units else "N/A")
                 ax_signal.legend(loc="upper right")
                 ax_residuals.legend(loc="upper right")
                 ax_signal.set_ylim(min(tiles_df_subset[face]), 1.01 * max(tiles_df_subset[face]))
@@ -470,7 +457,7 @@ class Plotter:
             axs[-1].set_xlim(start_xlim, end_xlim)
             start_datetime = tiles_df['datetime'][int(anomaly_start)].strftime('%Y-%m-%d %H:%M:%S')
             axs[-1].set_xlabel(f"datetime ({start_datetime})")
-            axs[0].set_title(f"Triggers with {trigger_algo_type} in ${', '.join(latex_faces)}$, $t_{{{'trigger'}}}$={start_datetime}, duration={anomaly_duration}s")
+            axs[0].set_title(f"Triggers with {trigger_algo_type} in {', '.join(latex_faces)}, $t_{{{'trigger'}}}$={start_datetime}, duration={anomaly_duration}s")
 
             if save:
                 path_name = f"{start_datetime}_{'_'.join(faces)}_{cat_event['NAME']}_{cat_event['CAT_NAME']}" if in_catalog else f"{start_datetime}_{'_'.join(faces)}"

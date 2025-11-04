@@ -57,14 +57,12 @@ class MultiMedianKNeighborsRegressor():
     logger = Logger('MultiMedianKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw=None, y_pred_cols=None, y_smooth_cols=None, latex_y_cols=None, with_generator=False):
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
         self.y_cols = y_cols
         self.x_cols = x_cols
         self.df_data = df_data
         # Optional parameters for consistency with MLObject interface
-        self.y_cols_raw = y_cols_raw or y_cols
         self.y_pred_cols = y_pred_cols or y_cols
-        self.y_smooth_cols = y_smooth_cols or y_cols
         self.latex_y_cols = latex_y_cols
         self.with_generator = with_generator
 
@@ -95,14 +93,12 @@ class MultiMeanKNeighborsRegressor():
     logger = Logger('MultiMeanKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw=None, y_pred_cols=None, y_smooth_cols=None, latex_y_cols=None, with_generator=False):
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
         self.y_cols = y_cols
         self.x_cols = x_cols
         self.df_data = df_data
         # Optional parameters for consistency with MLObject interface
-        self.y_cols_raw = y_cols_raw or y_cols
         self.y_pred_cols = y_pred_cols or y_cols
-        self.y_smooth_cols = y_smooth_cols or y_cols
         self.latex_y_cols = latex_y_cols
         self.with_generator = with_generator
 
