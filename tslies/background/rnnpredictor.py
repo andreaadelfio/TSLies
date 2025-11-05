@@ -25,7 +25,7 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class RNNPredictor(MLObject):
-    logger = Logger('RNN').get_logger()
+    logger = Logger('RNNPredictor').get_logger()
 
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)

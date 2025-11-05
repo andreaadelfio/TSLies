@@ -17,7 +17,7 @@ from .mlobject import MLObject
 
 class ABNNPredictor(MLObject):
     """The class for the Bayesian Neural Network model."""
-    logger = Logger('BNNPredictor').get_logger()
+    logger = Logger('ABNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):

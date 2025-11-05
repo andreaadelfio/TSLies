@@ -10,7 +10,7 @@ from .mlobject import MLObject
 
 class SpectralDomainFFNNPredictor(MLObject):
     """Feed-Forward Neural Network working in the frequency domain."""
-    logger = Logger('SpectralDomainFFNN').get_logger()
+    logger = Logger('SpectralDomainFFNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):

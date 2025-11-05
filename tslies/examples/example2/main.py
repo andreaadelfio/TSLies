@@ -81,7 +81,8 @@ def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
     trigger.run(reset_condition=reset)
     merged_anomalies, return_df = trigger.identify_and_merge_triggers(merge_interval=60)
     trigger.save_detections_csv_for_acd()
-    trigger.plot_anomalies(merged_anomalies, return_df, plot_only_in_catalog=True, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'], catalog=catalog)
+    detections_df, filtered_anomalies = trigger.filter_from_catalog(catalog, merged_anomalies)
+    trigger.plot_anomalies(merged_anomalies, return_df, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'], catalog=catalog)
 
 if __name__ == '__main__':
     catalog = CatalogsReader().catalog_df

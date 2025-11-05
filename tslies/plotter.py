@@ -304,45 +304,22 @@ class Plotter:
         return sorted_df
     
     @logger_decorator(logger)
-    def plot_anomalies_in_catalog(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, only_in_catalog=True, save=True, show=False, extension='png', units={}, latex_y_cols={}, detections_file_path='', catalog=None):
+    def plot_anomalies_in_catalog(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, save=True, show=False, extension='png', units={}, latex_y_cols={}, detections_file_path='', catalog=None):
         """Plots the anomalies passed as `df` in Plotter."""
-        
-        detections_df = self.read_detections_files(detections_file_path)
-        
-        results = {}
-        if catalog is not None and not catalog.empty:
-            for detection in detections_df.itertuples():
-                comparison_df = catalog[
-                    ((catalog['TIME'] <= np.datetime64(detection.start_datetime)) & (np.datetime64(detection.start_datetime) <= catalog['END_TIME'])) |
-                    ((catalog['TIME'] <= np.datetime64(detection.stop_datetime)) & (np.datetime64(detection.stop_datetime) <= catalog['END_TIME']))
-                ]
-                if len(comparison_df) > 0:
-                    for row in comparison_df.itertuples():
-                        if row not in [result['catalog_triggers'] for result in results.values()] or detection.start_datetime.strftime('%Y-%m-%d %H:%M:%S') not in results:
-                            results[detection.start_datetime.strftime('%Y-%m-%d %H:%M:%S')] = {
-                                'det_start_met': detection.start_met,
-                                'det_stop_met': detection.stop_met,
-                                'det_start_datetime': detection.start_datetime,
-                                'det_stop_datetime': detection.stop_datetime,
-                                'det_faces': detection.triggered_faces,
-                                'catalog_triggers': [row._asdict()]
-                            }
-                        else:
-                            results[detection.start_met]['catalog_triggers'] += row._asdict()
-
-        for an_time, anomalies in tqdm(self.df.items(), desc=f'Plotting anomalies with {trigger_algo_type}'):
+        for an_time, anomalies in tqdm(self.df.items(), desc='Plotting anomalies'):
             faces = list(anomalies.keys())
 
             anomaly_end = -1
             anomaly_start = tiles_df.index[-1]
+            in_catalog = False
             for anomaly in anomalies.values():
                 if anomaly['stop_index'] > anomaly_end:
                     anomaly_end = anomaly['stop_index']
                 if anomaly['start_index'] < anomaly_start:
                     anomaly_start = anomaly['start_index']
-            in_catalog = tiles_df['datetime'][anomaly_start].strftime('%Y-%m-%d %H:%M:%S') in results
-            if not in_catalog and only_in_catalog:
-                continue
+                if 'catalog_triggers' in anomaly:
+                    cat_event = anomaly['catalog_triggers'][0]
+                    in_catalog = True
             
             num_signal_residual_pairs = len(y_cols)
             num_support_vars = len(support_vars)
@@ -356,15 +333,12 @@ class Plotter:
             gss.append(GridSpecFromSubplotSpec(1, 1, subplot_spec=gs0[-1], hspace=0.))
 
             axs = []
-            if in_catalog:
-                cat_event = results[tiles_df['datetime'][anomaly_start].strftime('%Y-%m-%d %H:%M:%S')]['catalog_triggers'][0]
             anomaly_duration = anomaly_end - int(anomaly_start)
             anomaly_delta = max((anomaly_duration) // 5, 120)
             start = max(int(anomaly_start) - anomaly_delta, 0)
             end = min(anomaly_end + anomaly_delta, len(tiles_df))
             start_xlim = tiles_df['datetime'][int(anomaly_start)] - timedelta(seconds=anomaly_delta)
             end_xlim = tiles_df['datetime'][anomaly_end] + timedelta(seconds=anomaly_delta-1)
-
             tiles_df_subset = tiles_df[start:end]
             if not latex_y_cols:
                 latex_y_cols = {col: col for col in faces if col in tiles_df_subset}
@@ -478,17 +452,6 @@ class Plotter:
             if show:
                 plt.show()
             plt.close('all')
-
-        results_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'comparison_results.csv')
-        if not os.path.exists(results_path):
-            results_df = pd.DataFrame(results.values())
-        else:
-            results_df = pd.read_csv(results_path)
-            results_df = pd.concat([results_df, pd.DataFrame(results.values())])
-        if results_df.empty:
-            return
-        results_df.to_csv(results_path, index=False)
-
 
     
     @logger_decorator(logger)
