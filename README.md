@@ -38,17 +38,17 @@ pip install -e .
 ### Python Dependencies
 Core packages include:
 
-- `tensorflow==2.18.0"`
-- `tensorflow-probability==0.25.0"`
-- `tf_keras==2.18.0"`
-- `keras==3.7.0"`
-- `numpy==1.26.4"`
-- `pandas==2.2.2"`
+- `tensorflow`
+- `tensorflow-probability`
+- `tf_keras`
+- `keras`
+- `numpy`
+- `pandas`
 - `scikit-learn`
-- `scipy==1.13.1"`
-- `matplotlib==3.8.4"`
-- `seaborn==0.13.2"`
-- `tqdm==4.66.4"`
+- `scipy`
+- `matplotlib`
+- `seaborn`
+- `tqdm`
 
 ## Main Features
 
