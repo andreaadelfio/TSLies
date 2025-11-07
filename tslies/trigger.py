@@ -14,7 +14,9 @@ import bisect
 from .config import (
     RESULTS_DIR,
     ANOMALIES_DIR,
+    ANOMALIES_TIME_DIR,
     ANOMALIES_PLOTS_DIR,
+    require_existing_dir
 )
 from .plotter import Plotter
 from .utils import Data, Logger, logger_decorator
@@ -26,6 +28,7 @@ if RESULTS_DIR is None or ANOMALIES_DIR is None or ANOMALIES_PLOTS_DIR is None:
     )
 
 TRIGGER_FOLDER_NAME = str(ANOMALIES_DIR)
+TRIGGER_TIME_FOLDER_NAME = str(ANOMALIES_TIME_DIR)
 PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
 
 
@@ -256,14 +259,9 @@ class Trigger:
             `y_cols` (list): list of columns to be used for the trigger
             `y_pred_cols` (list): list of columns containing the predictions
 
-        Returns:
+        Returns
             dict: dict containing the anomalies
         """
-        if not os.path.exists(TRIGGER_FOLDER_NAME):
-            os.makedirs(TRIGGER_FOLDER_NAME)
-        if not os.path.exists(PLOT_TRIGGER_FOLDER_NAME):
-            os.makedirs(PLOT_TRIGGER_FOLDER_NAME)
-
         if reset_condition is None:
             reset_condition = np.zeros(len(self.tiles_df), dtype=bool)
         reset_indices = np.where(reset_condition)[0]
@@ -295,7 +293,7 @@ class Trigger:
         self.tiles_df['anomaly'] = self.mask.astype(int)
         return self.tiles_df
 
-    def identify_and_merge_triggers(self, file='', merge_interval=3):
+    def identify_and_merge_triggers(self, merge_interval=3):
         triggs_df = pd.DataFrame(self.triggs_dict)
         triggs_df['datetime'] = self.tiles_df['datetime']
         self.return_df = triggs_df.copy()
@@ -306,9 +304,6 @@ class Trigger:
 
         if triggs_df.empty:
             self.logger.info('No triggers detected.')
-            self.detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections_{file}.csv') if file else os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'detections.csv')
-            with open(self.detections_file_path, 'w') as f:
-                f.write("start_datetime,stop_datetime,start_met,stop_met,triggered_faces\n")
             return {}, self.return_df
 
         for face in self.y_cols:
@@ -384,9 +379,10 @@ class Trigger:
         return pd.DataFrame(detections)
 
     def save_detections_csv(self, detections_df: pd.DataFrame, file='', suffix=''):
+        require_existing_dir(TRIGGER_TIME_FOLDER_NAME)
         file = f'_{file}' if file else ''
 
-        detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections{file}.csv')
+        detections_file_path = os.path.join(TRIGGER_TIME_FOLDER_NAME, f'detections{file}.csv')
         detections_file_path = detections_file_path.replace('.csv', f'{suffix}.csv')
         detections_df.to_csv(detections_file_path, index=False)
 
@@ -427,7 +423,6 @@ class Trigger:
                     results_dict[an_time][key]['catalog_triggers'] = match['catalog_triggers'].iloc[0]
 
         return detections_df, results_dict
-        
 
     def plot_anomalies(self, merged_anomalies=None, return_df=None, support_vars=[], show=False):
         if merged_anomalies is None:

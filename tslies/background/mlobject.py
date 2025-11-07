@@ -14,6 +14,7 @@ from ..config import (
     RESULTS_DIR,
     BACKGROUND_PREDICTION_DIR,
     require_base_dir,
+    require_existing_dir
 )
 from ..plotter import Plotter
 from .losses import CustomLosses
@@ -63,8 +64,7 @@ class MLObject(ABC):
                                      'mse': 1})
 
         self.model_path = os.path.join(BACKGROUND_PREDICTION_FOLDER_NAME, self.training_date, self.model_name)
-        if not os.path.exists(self.model_path):
-            os.makedirs(self.model_path)
+        require_existing_dir(self.model_path)
         self.model_params_path = os.path.join(self.model_path, 'models_params.csv')
         self.nn_r = None
         self.text = None
@@ -87,12 +87,12 @@ class MLObject(ABC):
     def get_hyperparams_combinations(self, hyperparams_combinations:dict, use_previous:bool=False) -> list:
         """Trims the hyperparameters combinations to avoid training duplicate models.
         
-            Parameters:
+            Parameters
             ----------
                 hyperparams_combinations (dict): The hyperparameters combinations.
                 use_previous (bool): Whether to use the previous hyperparameters combinations found in `BACKGROUND_PREDICTION_FOLDER_NAME`.
                 
-            Returns:
+            Returns
             --------
                 list: The hyperparameters combinations."""
         hyperparams_combinations_tmp = []
@@ -125,11 +125,11 @@ class MLObject(ABC):
     def set_hyperparams(self, params, use_previous=False):
         """Sets the hyperparameters for the model.
         
-        Parameters:
+        Parameters
         ----------
             params (dict): The hyperparameters.
             
-        Example::
+        Example
 
             params = {'model_id': 0, 'units_1': 128, 'units_2': 128, 'units_3': 128,
                       'norm': True, 'drop': True, 'epochs': 100, 'bs': 32, 'do': 0.5,
@@ -142,8 +142,7 @@ class MLObject(ABC):
         self.params['y_cols'] = self.y_cols
         self.model_id = params['model_id']
         self.model_path = os.path.join(BACKGROUND_PREDICTION_FOLDER_NAME, self.training_date, self.model_name, str(self.model_id))
-        if not os.path.exists(self.model_path):
-            os.makedirs(self.model_path)
+        require_existing_dir(self.model_path)
         self.params['model_path'] = self.model_path = os.path.join(self.model_path, 'model.keras')
         # # self.params['dataframe_path'] = DATA_LATACD_PROCESSED_FOLDER_NAME
 
@@ -175,11 +174,11 @@ class MLObject(ABC):
     def set_model(self, model_path: str, compile: bool = True):
         """Sets the model from the model path.
         
-        Parameters:
+        Parameters
         ----------
             model_path (str): The path to the model.
             
-        Returns:
+        Returns
         --------
             Model: The model."""
         if model_path is not None and model_path != '':
@@ -194,7 +193,7 @@ class MLObject(ABC):
     def set_scalers(self, train_x: pd.DataFrame = None, train_y: pd.DataFrame = None):
         """Sets the scaler for the model.
         
-        Parameters:
+        Parameters
         ----------
             train (pd.DataFrame): The training data."""
         if train_x is None:
@@ -232,7 +231,7 @@ class MLObject(ABC):
 
     def set_loss(self):
         """Sets a loss function or a combination of loss functions for the model.
-        Parameters:
+        Parameters
         ----------
             loss_type_list (list[str]): A list of loss function names.
         """
@@ -361,7 +360,7 @@ class MLObject(ABC):
         """
         Make predictions with standardized interface.
         
-        Parameters:
+        Parameters
         -----------
         start : Union[str, int]
             Start index or datetime string
@@ -380,7 +379,7 @@ class MLObject(ABC):
         support_variables : Optional[List[str]]
             Additional variables to include in plots
             
-        Returns:
+        Returns
         --------
         Tuple[pd.DataFrame, pd.DataFrame]
             Original data and predictions

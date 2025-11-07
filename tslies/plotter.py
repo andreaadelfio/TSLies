@@ -20,6 +20,7 @@ from .config import (
     BACKGROUND_PREDICTION_DIR,
     ANOMALIES_DIR,
     ANOMALIES_PLOTS_DIR,
+    require_existing_dir
 )
 from .utils import Logger, logger_decorator, Time
 
@@ -51,13 +52,14 @@ class Plotter:
         """
         Initialize the Plotter object.
 
-        Parameters:
+        Parameters
         ----------
             x (list): The x-coordinates of the data points (default: None).
             y (list): The y-coordinates of the data points (default: None).
             df (pd.DataFrame): The y-coordinates of the data points (default: None).
             xy (dict): A dictionary of x, y, and smooth y values for multiple curves (default: None).
             label (str): The label for the plot (default: '').
+            latex (bool): Whether to use LaTeX for rendering text in plots (default: False).
         """
         self.x = x
         self.y = y
@@ -72,37 +74,12 @@ class Plotter:
                 "font.size": 35
             })
 
-    # @logger_decorator(logger)
-    # def plot_tiles(self, marker = '-', lw = 0.2, with_smooth = False, show = True):
-    #     """
-    #     Plot multiple curves as tiles.
-
-    #     Parameters:
-    #     ----------
-    #         lw (float): Line width of the curves (default: 0.1).
-    #         with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-    #     """
-    #     i = 0
-    #     _, axs = plt.subplots(len(self.xy), 1, sharex=True)
-    #     plt.tight_layout(pad = 0.4)
-    #     axs[0].set_title(self.label)
-    #     for label, xy in self.xy.items():
-    #         axs[i].plot(xy[0], xy[1], marker = marker, lw = lw, label=label)
-    #         if with_smooth:
-    #             axs[i].plot(xy[0], xy[2], marker = marker, label=f'{label} smooth')
-    #         axs[i].legend()
-    #         axs[i].grid()
-    #         axs[i].set_xlim(xy[0][0], xy[0][-1])
-    #         i += 1
-    #     if show:
-    #         plt.show()
-
     @logger_decorator(logger)
     def df_plot_corr_tiles(self, x_col, excluded_cols = None, marker = '-', ms = 1, lw = 0.1, smoothing_key = 'smooth', show = True):
         """
         Plot multiple curves as tiles.
 
-        Parameters:
+        Parameters
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
@@ -150,7 +127,7 @@ class Plotter:
         """
         Plot multiple curves as tiles.
 
-        Parameters:
+        Parameters
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
@@ -201,7 +178,7 @@ class Plotter:
             axs[i].tick_params(axis="y", labelrotation=30)
             if top_x_col and top_x_col in self.df.columns and i < n_cols:
                 if top_x_col == 'datetime':
-                    secax = axs[i].secondary_xaxis('top', functions=(Time.from_met_to_datetime, lambda x: x))
+                    secax = axs[i].secondary_xaxis('top', functions=(Time.from_elapsed_time_to_datetime, lambda x: x))
                     secax.set_xlabel(f'{top_x_col} ({self.df[top_x_col].iloc[0]})')
                 elif top_x_col == 'MET':
                     secax = axs[i].secondary_xaxis('top', functions=(Time.date2yday, lambda x: x))
@@ -305,6 +282,7 @@ class Plotter:
     
     @logger_decorator(logger)
     def plot_anomalies(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, save=True, show=False, extension='png', units={}, latex_y_cols={}):
+        require_existing_dir(PLOT_TRIGGER_FOLDER_NAME)
         """Plots the anomalies passed as `df` in Plotter."""
         for an_time, anomalies in tqdm(self.df.items(), desc='Plotting anomalies'):
             faces = list(anomalies.keys())

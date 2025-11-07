@@ -16,7 +16,7 @@ from scipy import fftpack
 import gc
 from tqdm import tqdm
 
-from .config import LOGS_DIR, DATA_DIR, get_base_dir, require_base_dir
+from .config import LOGS_DIR, DATA_DIR, get_base_dir, require_base_dir, require_existing_dir
 
 BASE_DIR_PATH = require_base_dir()
 if LOGS_DIR is None or DATA_DIR is None:
@@ -47,7 +47,7 @@ class Logger():
         """
         Initializes a Logger object.
 
-        Parameters:
+        Parameters
         ----------
             logger_name (str): The name of the logger.
             log_file_name (str): The name of the log file. 
@@ -56,7 +56,7 @@ class Logger():
                                    Default is LOGGING_FOLDER_PATH from config.py.
             log_level (int): The log level. Default is logging.DEBUG.
 
-        Returns:
+        Returns
         -------
             None
         """
@@ -101,7 +101,7 @@ class Logger():
         """
         Returns the logger object.
 
-        Returns:
+        Returns
         -------
             logging.Logger: The logger object.
         """
@@ -138,45 +138,66 @@ class Time:
     """
     logger = Logger('Time').get_logger()
 
-    fermi_ref_time = datetime(2001, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+    ref_time = datetime(2001, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
     fermi_launch_time = datetime(2008, 8, 7, 3, 35, 44, tzinfo=timezone.utc)
 
     @staticmethod
-    def from_met_to_datetime(met_list: list) -> list:
-        """
-        Convert the MET to a datetime object.
-
-        Parameters:
-        - met_list (list): The MET list to convert.
-
-        Returns:
-        -------
-        - datetime_list (list of datetime): The datetime object corresponding to the MET.
-        """
-        return [Time.fermi_ref_time + timedelta(seconds=int(met)) for met in met_list]
+    def _unit_to_seconds_factor(unit: str) -> float:
+        """Return the multiplier that converts an elapsed value in ``unit`` to seconds."""
+        factors = {
+            's': 1.0, 'sec': 1.0, 'second': 1.0, 'seconds': 1.0,
+            'ms': 1e-3, 'millisecond': 1e-3, 'milliseconds': 1e-3,
+            'us': 1e-6, 'microsecond': 1e-6, 'microseconds': 1e-6,
+            'ns': 1e-9, 'nanosecond': 1e-9, 'nanoseconds': 1e-9,
+            'm': 60.0, 'min': 60.0, 'minute': 60.0, 'minutes': 60.0,
+            'h': 3600.0, 'hr': 3600.0, 'hour': 3600.0, 'hours': 3600.0,
+            'd': 86400.0, 'day': 86400.0, 'days': 86400.0,
+        }
+        factor = factors.get(unit.lower())
+        if factor is None:
+            raise ValueError(f"Unsupported time unit '{unit}'.")
+        return factor
 
     @staticmethod
-    def from_datetime_to_met(datetime_list: list) -> list:
+    def from_elapsed_time_to_datetime(elapsed_list: list, unit: str = 's') -> list:
         """
-        Convert the datetime object to MET.
+        Convert elapsed times since ``Time.ref_time`` to timezone-aware datetimes.
 
-        Parameters:
-        - datetime_list (list): The datetime list to convert.
+        Parameters
+        ----------
+        - elapsed_list (list): Elapsed values referenced to ``Time.ref_time``.
+        - unit (str): Unit of measure for the elapsed values (default: seconds).
 
-        Returns:
+        Returns
         -------
-        - met_list (list of int): The MET corresponding to the datetime object.
+        - datetime_list (list of datetime): Corresponding datetime objects.
         """
-        for dt in datetime_list:
-            print(dt)
-        return [(dt - Time.fermi_ref_time).total_seconds() for dt in datetime_list]
+        factor = Time._unit_to_seconds_factor(unit)
+        return [Time.ref_time + timedelta(seconds=float(elapsed) * factor) for elapsed in elapsed_list]
+
+    @staticmethod
+    def from_datetime_to_elapsed_time(datetime_list: list, unit: str = 's') -> list:
+        """
+        Convert datetimes referenced to ``Time.ref_time`` into elapsed values.
+
+        Parameters
+        ----------
+        - datetime_list (list): Iterable of datetime objects to convert.
+        - unit (str): Desired unit of measure for the elapsed values (default: seconds).
+
+        Returns
+        -------
+        - elapsed_list (list of float): Elapsed values in the requested unit.
+        """
+        factor = Time._unit_to_seconds_factor(unit)
+        return [((dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)) - Time.ref_time).total_seconds() / factor for dt in datetime_list]
 
     @staticmethod
     def date2yday(x):
         """Convert matplotlib datenum to days since 2018-01-01."""
         y = []
         for dt in x:
-            y.append((mdates.num2date(dt) - Time.fermi_ref_time).total_seconds())
+            y.append((mdates.num2date(dt) - Time.ref_time).total_seconds())
         return y
 
     @staticmethod
@@ -185,33 +206,36 @@ class Time:
         y = []
         for dt in x:
             print(dt)
-            y.append((mdates.num2date(dt) + Time.fermi_ref_time).total_seconds())
+            y.append((mdates.num2date(dt) + Time.ref_time).total_seconds())
         return y
 
     @staticmethod
-    def from_met_to_datetime_str(met_list: list) -> list:
+    def from_elapsed_time_to_datetime_str(elapsed_list: list, unit: str = 's') -> list[str]:
         """
-        Convert the MET to a datetime object and return as string.
+        Convert elapsed values to datetime strings referenced to ``Time.ref_time``.
 
-        Parameters:
-        - met_list (list): The MET list to convert.
+        Parameters
+        ----------
+        - elapsed_list (list): Elapsed values referenced to ``Time.ref_time``.
+        - unit (str): Unit of measure for the elapsed values (default: seconds).
 
-        Returns:
+        Returns
         -------
-        - datetime_list (list of str): The datetime object corresponding to the MET, 
-                                       represented as strings.
+        - datetime_list (list of str): Corresponding datetime objects as strings.
         """
-        return [str(Time.fermi_ref_time + timedelta(seconds=int(met))) for met in met_list]
+        factor = Time._unit_to_seconds_factor(unit)
+        return [str(Time.ref_time + timedelta(seconds=float(elapsed) * factor)) for elapsed in elapsed_list]
 
     @staticmethod
-    def remove_milliseconds_from_datetime(datetime_list: list) -> list:
+    def remove_milliseconds_from_datetime(datetime_list: list) -> list[datetime]:
         """
         Remove the milliseconds from the datetime object.
 
-        Parameters:
+        Parameters
+        ----------
         - datetime_list (list): The datetime list to convert.
 
-        Returns:
+        Returns
         -------
         - datetime_list (list of datetime): The datetime object without milliseconds.
         """
@@ -222,10 +246,11 @@ class Time:
         """
         Get the week number from the datetime object.
 
-        Parameters:
+        Parameters
+        ----------
         - datetime_dict (list): The datetime list to convert.
 
-        Returns:
+        Returns
         -------
         - week_list (list of int): The week number corresponding to the datetime.
         """
@@ -241,10 +266,11 @@ class Time:
         """
         Get the datetime from the week number.
 
-        Parameters:
+        Parameters
+        ----------
         - week (int): The week number.
 
-        Returns:
+        Returns
         -------
         - datetime_tuple (tuple): The datetime tuple corresponding to the week.
         """
@@ -264,14 +290,14 @@ class Data():
         """
         Returns the masked data within the specified time range.
 
-        Parameters:
+        Parameters
         ----------
             start (float): The start time of the desired data range.
             stop (float): The stop time of the desired data range.
             data (DataFrame): The input data.
             column (str, optional): The column name representing the time. Defaults to 'datetime'.
 
-        Returns:
+        Returns
         -------
             DataFrame: The masked data within the specified time range.
         """
@@ -289,14 +315,14 @@ class Data():
         """
         Returns the excluded dataframes within the specified time range.
 
-        Parameters:
+        Parameters
         ----------
             start (float): The start time of the desired data range.
             stop (float): The stop time of the desired data range.
             data (DataFrame): The input data.
             column (str, optional): The column name representing the time. Defaults to 'datetime'.
 
-        Returns:
+        Returns
         -------
             list: The excluded dataframes within the specified time range.
         """
@@ -309,14 +335,14 @@ class Data():
         """
         Returns the masked data within the specified time range.
 
-        Parameters:
+        Parameters
         ----------
             start (float): The start time of the desired data range.
             stop (float): The stop time of the desired data range.
             data (DataFrame): The input data.
             column (str, optional): The column name representing the time. Defaults to 'datetime'.
 
-        Returns:
+        Returns
         -------
             dict: The masked data within the specified time range, with column names as keys
                   and lists of values as values.
@@ -331,12 +357,12 @@ class Data():
         """
         Returns the spacecraft dataframe filtered on runs times.
 
-        Parameters:
+        Parameters
         ----------
             initial_dataframe (DataFrame): The initial spacecraft data.
             run_times (DataFrame): The dataframe containing run times.
 
-        Returns:
+        Returns
         -------
             DataFrame: The filtered spacecraft dataframe.
         """
@@ -353,11 +379,11 @@ class Data():
         """
         Converts the data containing the spacecraft data into a pd.DataFrame.
 
-        Parameters:
+        Parameters
         ----------
             data_to_df (ndarray): The data to convert.
 
-        Returns:
+        Returns
         -------
             DataFrame: The dataframe containing the spacecraft data.
         """
@@ -393,12 +419,11 @@ class File:
     @logger_decorator(logger)
     @staticmethod
     def write_df_on_file(df: pd.DataFrame, filename: str='', fmt: str='pk'):
-        """
-        Write the dataframe to a file.
+        """Write the dataframe to a file.
 
-        Parameters:
+        Parameters
         ----------
-            df (DataFrame): The dataframe to write.
+            df (pd.DataFrame): The dataframe to write.
             filename (str, optional): The name of the file to write the dataframe to.
                                       Defaults to ''.
             fmt (str, optional): The format to write the dataframe in.
@@ -407,21 +432,21 @@ class File:
                                     'pk' to write a .pk file;
                                     'both' to write in both formats.
                                  Defaults to 'pk'.
+
+        Returns
+        -------
+            None
         """
         path, filename = os.path.split(filename)
         if fmt == 'csv':
-            if not os.path.exists(os.path.join(path, 'csv')):
-                os.makedirs(os.path.join(path, 'csv'), exist_ok=True)
+            require_existing_dir(os.path.join(path, 'csv'))
             df.to_csv(os.path.join(path, 'csv', filename + '.csv'), index=False)
         elif fmt == 'pk':
-            if not os.path.exists(os.path.join(path, 'pk')):
-                os.makedirs(os.path.join(path, 'pk'), exist_ok=True)
+            require_existing_dir(os.path.join(path, 'pk'))
             df.to_pickle(os.path.join(path, 'pk', filename + '.pk'))
         elif fmt == 'both':
-            if not os.path.exists(os.path.join(path, 'csv')):
-                os.makedirs(os.path.join(path, 'csv'), exist_ok=True)
-            if not os.path.exists(os.path.join(path, 'pk')):
-                os.makedirs(os.path.join(path, 'pk'), exist_ok=True)
+            require_existing_dir(os.path.join(path, 'csv'))
+            require_existing_dir(os.path.join(path, 'pk'))
             df.to_csv(os.path.join(path, 'csv', filename + '.csv'), index=False)
             df.to_pickle(os.path.join(path, 'pk', filename + '.pk'))
 
@@ -431,12 +456,12 @@ class File:
         """
         Read the dataframe from a file.
 
-        Parameters:
+        Parameters
         ----------
             filename (str, optional): The name of the file to read the dataframe from.
                                       Defaults to ''.
 
-        Returns:
+        Returns
         -------
             DataFrame: The dataframe read from the file.
         """
@@ -445,49 +470,49 @@ class File:
             return pd.read_pickle(path)
         return None
 
-    @logger_decorator(logger)
-    @staticmethod
-    def read_dfs_from_runs_pk_folder(folder_path='', add_smoothing=False, mode='mean', window=30, start=0, stop=-1, cols_list=None):
-        """
-        Read the dataframe from pickle files in a folder.
+    # @logger_decorator(logger)
+    # @staticmethod
+    # def read_dfs_from_runs_pk_folder(folder_path='', add_smoothing=False, mode='mean', window=30, start=0, stop=-1, cols_list=None):
+    #     """
+    #     Read the dataframe from pickle files in a folder.
 
-        Parameters:
-        ----------
-            folder_path (str, optional): The name of the folder to read the dataframe from.
-                                      Defaults to ''.
+    #     Parameters
+    #     ----------
+    #         folder_path (str, optional): The name of the folder to read the dataframe from.
+    #                                   Defaults to ''.
 
-        Returns:
-        -------
-            DataFrame: The dataframe read from the file.
-        """
-        folder_path = os.path.join(folder_path, 'pk')
-        merged_dfs: pd.DataFrame = None
-        if os.path.exists(folder_path):
-            dir_list = [os.path.join(folder_path, file) for file in os.listdir(folder_path)
-                        if file.endswith('.pk')]
-            dir_list = sorted(dir_list, key=lambda x: int(re.search(r"\d+", os.path.basename(x)).group(0)))[start:stop]
-            dfs = [pd.read_pickle(file)[cols_list] if cols_list else pd.read_pickle(file) for file in dir_list]
-            dfs = [df[(df.loc[:, df.columns.difference(['MET'])] != 0).any(axis=1)] for df in dfs]
-            if add_smoothing:
-                if mode == 'mean':
-                    dfs = [Maths.add_smoothing_with_mean(df, window=window) for df in dfs]
-                elif mode == 'fft':
-                    dfs = [Maths.add_smoothing_with_fft(df) for df in dfs]
-            print(dfs[0].columns)
-            merged_dfs = pd.concat(dfs, ignore_index=True).drop_duplicates('MET', ignore_index=True) # patch, trovare sorgente del bug
-        return merged_dfs
+    #     Returns
+    #     -------
+    #         DataFrame: The dataframe read from the file.
+    #     """
+    #     folder_path = os.path.join(folder_path, 'pk')
+    #     merged_dfs: pd.DataFrame = None
+    #     if os.path.exists(folder_path):
+    #         dir_list = [os.path.join(folder_path, file) for file in os.listdir(folder_path)
+    #                     if file.endswith('.pk')]
+    #         dir_list = sorted(dir_list, key=lambda x: int(re.search(r"\d+", os.path.basename(x)).group(0)))[start:stop]
+    #         dfs = [pd.read_pickle(file)[cols_list] if cols_list else pd.read_pickle(file) for file in dir_list]
+    #         dfs = [df[(df.loc[:, df.columns.difference(['MET'])] != 0).any(axis=1)] for df in dfs]
+    #         if add_smoothing:
+    #             if mode == 'mean':
+    #                 dfs = [Maths.add_smoothing_with_mean(df, window=window) for df in dfs]
+    #             elif mode == 'fft':
+    #                 dfs = [Maths.add_smoothing_with_fft(df) for df in dfs]
+    #         print(dfs[0].columns)
+    #         merged_dfs = pd.concat(dfs, ignore_index=True).drop_duplicates('MET', ignore_index=True) # patch, trovare sorgente del bug
+    #     return merged_dfs
 
     @logger_decorator(logger)
     def read_dfs_from_weekly_pk_folder(self, folder_path=DATA_FOLDER_NAME, custom_sorter=lambda x: int(x.split('w')[-1].split('.')[0]), cols_list=None, start=None, stop=None, y_cols=[], resample_skip=1):
         """
         Read the dataframe from pickle files in a folder.
 
-        Parameters:
+        Parameters
         ----------
             folder_path (str, optional): The name of the folder to read the dataframe from.
                                       Defaults to ''.
 
-        Returns:
+        Returns
         -------
             DataFrame: The dataframe read from the file.
         """
@@ -509,7 +534,7 @@ class File:
                     tmp_df = tmp_df[(tmp_df[y_cols] != 0).all(axis=1)]
                 dfs.append(tmp_df)
                 gc.collect()
-            merged_dfs = pd.concat(dfs, ignore_index=True)#.drop_duplicates('MET', ignore_index=True) # patch, trovare sorgente del bug
+            merged_dfs = pd.concat(dfs, ignore_index=True)
         else:
             self.logger.error('Folder %s does not exist.', folder_path)
         return merged_dfs
@@ -520,12 +545,12 @@ class File:
         """
         Read the dataframe from csv files in a folder.
 
-        Parameters:
+        Parameters
         ----------
             folder_path (str, optional): The name of the folder to read the dataframe from.
                                       Defaults to ''.
 
-        Returns:
+        Returns
         -------
             DataFrame: The dataframe read from the file.
         """
@@ -544,7 +569,7 @@ class File:
     def write_on_file(data: dict, filename: str):
         """Writes data on file
 
-        Parameters:
+        Parameters
         ----------
             data (dict): disctionary containing data
             filename (str): name of the file
@@ -559,7 +584,7 @@ class File:
         """
         Checks the integrity of the dataframe from pickle files in a folder.
 
-        Parameters:
+        Parameters
         ----------
             folder_path (str, optional): The name of the folder to read the dataframe from.
                                       Defaults to ''.
@@ -617,19 +642,4 @@ class Maths:
         return tile_signal
 
 if __name__ == '__main__':
-    y_cols = ['top_low', 'top_middle', 'top_high', 'Xpos_low', 'Xpos_middle', 'Xpos_high', 'Xneg_low', 'Xneg_middle', 'Xneg_high', 'Ypos_low', 'Ypos_middle', 'Ypos_high', 'Yneg_low', 'Yneg_middle', 'Yneg_high']
-    y_pred_cols = [col + '_pred' for col in y_cols]
-
-    x_cols = ['SC_POSITION_0', 'SC_POSITION_1', 'SC_POSITION_2', 'LAT_GEO', 'LON_GEO',
-                'RAD_GEO', 'RA_ZENITH', 'DEC_ZENITH', 'B_MCILWAIN', 'L_MCILWAIN', 
-                'GEOMAG_LAT', 'LAMBDA', 'RA_SCZ', 'START', 'STOP', 'MET',
-                'LAT_MODE', 'LAT_CONFIG', 'DATA_QUAL', 'LIVETIME', 'DEC_SCZ', 'RA_SCX',
-                'DEC_SCX', 'RA_NPOLE', 'DEC_NPOLE', 'ROCK_ANGLE',
-                'QSJ_1', 'QSJ_2', 'QSJ_3', 'QSJ_4', 'RA_SUN', 'DEC_SUN',
-                'SC_VELOCITY_0', 'SC_VELOCITY_1', 'SC_VELOCITY_2',
-                'GOES_XRSA_HARD', 'GOES_XRSB_SOFT', 'GOES_XRSA_HARD_EARTH_OCCULTED',
-                'GOES_XRSB_SOFT_EARTH_OCCULTED', 'TIME_FROM_SAA', 'SAA_EXIT']
-    x_cols_excluded = ['LIVETIME', 'GOES_XRSA_HARD_EARTH_OCCULTED', 'GOES_XRSB_SOFT_EARTH_OCCULTED', 'STOP', 'MET']
-    x_cols = [col for col in x_cols if col not in x_cols_excluded]
-
-    inputs_outputs_df = File().read_dfs_from_weekly_pk_folder(start=0, stop=850, cols_list=x_cols + y_cols + ['datetime', 'MET'], y_cols=y_cols)
+    print('This is a utils module, not a main program.')

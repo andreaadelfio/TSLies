@@ -133,7 +133,7 @@ class MCMCBNNPredictor(MLObject):
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Predicts the output data.
         
-        Parameters:
+        Parameters
         ----------
             start (int): The starting index. Default is 0.
             end (int): The ending index. Default is -1.

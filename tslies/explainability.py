@@ -13,7 +13,7 @@ from .plotter import Plotter
 def get_feature_importance(model_path, inputs_outputs_df, y_cols, x_cols, num_sample = 100, model = None, show=True, save=True):
     """Get the feature importance using LIME and SHAP and plots it with matplotlib barh.
     
-    Parameters:
+    Parameters
     ----------
         model_path (str): The path to the model.
         inputs_outputs_df (pd.DataFrame): The input and output data.
