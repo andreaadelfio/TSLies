@@ -16,16 +16,42 @@ from .mlobject import MLObject
 
 
 class ABNNPredictor(MLObject):
-    """The class for the Bayesian Neural Network model."""
+    """Bayesian neural network predictor extending the shared MLObject scaffold."""
     logger = Logger('ABNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        """
+        Initialise the Bayesian neural network predictor with training data and metadata.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Full data frame containing features, targets, and metadata.
+        - y_cols (List[str]): Column names of the target variables to model.
+        - x_cols (List[str]): Column names of the feature variables used for training.
+        - y_pred_cols (Optional[List[str]]): Optional names to store prediction outputs. Defaults to ``y_cols`` plus ``_pred``.
+        - latex_y_cols (Optional[List[str]]): LaTeX-ready labels used for plotting utilities.
+        - with_generator (bool): Flag indicating whether to use a generator-based training pipeline (not yet implemented).
+
+        Raises
+        ------
+        - ValueError: Propagated if ``df_data`` is ``None`` in the superclass initialisation.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        """Builds the Bayesian Neural Network model."""
+        """
+        Construct the probabilistic neural network architecture and compile it.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If required configuration attributes (e.g. ``units_for_layers``) are missing.
+        """
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.layers.Input(shape=(len(self.x_cols), )),
@@ -44,7 +70,21 @@ class ABNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the Bayesian neural network on the prepared training split.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: Training history object returned by ``model.fit``.
+
+        Raises
+        ------
+        - NotImplementedError: When ``with_generator`` is ``True`` (feature not available).
+        """
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -55,13 +95,28 @@ class ABNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Generate predictive distributions and export background time series if requested.
+
         Parameters
         ----------
-            start (int): The starting index. Default is 0.
-            end (int): The ending index. Defualt is -1.
-            """
+        - start (Union[int, str]): Starting index or datetime for the slice. Defaults to ``0``.
+        - end (Union[int, str]): Ending index or datetime for the slice. Defaults to ``-1``.
+        - mask_column (str): Column evaluated against ``start``/``end`` when slicing.
+        - write_bkg (bool): Persist background predictions to the model output directory.
+        - write_frg (bool): Persist foreground targets to disk alongside background data.
+        - num_batches (int): Number of batches used to iterate over the inference set.
+        - save_predictions_plot (bool): Persist prediction plots through ``Plotter`` utilities.
+        - support_variables (List[str]): Additional columns merged into plot data.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Tuple containing the original target slice and the prediction frame with uncertainties.
+
+    Raises
+    ------
+    - None: The method returns empty data frames when the requested slice has no rows.
+        """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:

@@ -35,30 +35,26 @@ DATA_FOLDER_NAME = str(DATA_DIR)
 
 
 class Logger():
-    """
-    A class that provides utility functions for logging.
-
-    """
+    """Utility wrapper around the standard library logging facilities."""
     def __init__(self, logger_name: str,
                  log_file_prefix: str = '',
                  log_file_name: str = LOGGING_FILE_NAME,
                  log_folder_path: str | os.PathLike[str] = LOGGING_FOLDER_PATH,
                  log_level: int = logging.DEBUG):
         """
-        Initializes a Logger object.
+        Initialise a configured ``logging.Logger`` instance.
 
         Parameters
         ----------
-            logger_name (str): The name of the logger.
-            log_file_name (str): The name of the log file. 
-                                 Default is LOGGING_FILE_NAME from config.py.
-            log_folder_path (str): The path of the log folder.
-                                   Default is LOGGING_FOLDER_PATH from config.py.
-            log_level (int): The log level. Default is logging.DEBUG.
+        - logger_name (str): Qualifier used to register the logger.
+        - log_file_prefix (str): Optional prefix prepended to the log filename.
+        - log_file_name (str): Target log filename, defaults to ``LOGGING_FILE_NAME``.
+        - log_folder_path (str | os.PathLike[str]): Directory where log files are stored.
+        - log_level (int): Logging level threshold, defaulting to ``logging.DEBUG``.
 
-        Returns
-        -------
-            None
+        Raises
+        ------
+        - OSError: Propagated if the log directory cannot be created.
         """
         self.log_level = log_level
         self.logger_name = logger_name
@@ -99,20 +95,38 @@ class Logger():
 
     def get_logger(self):
         """
-        Returns the logger object.
+        Provide access to the configured ``logging.Logger`` instance.
+
+        Parameters
+        ----------
+        - None
 
         Returns
         -------
-            logging.Logger: The logger object.
+        - logging.Logger: Logger ready for use.
         """
         return self.logger
 
 def logger_decorator(logger):
-    """Logger decorator"""
+    """
+    Wrap a function so its execution is logged with start/stop markers.
+
+    Parameters
+    ----------
+    - logger (logging.Logger): Logger used to emit progress messages.
+
+    Returns
+    -------
+    - Callable: Decorator that adds logging to the wrapped function.
+
+    Raises
+    ------
+    - None
+    """
     def decorator(func):
         def wrapper(*args, **kwargs):
             class CustomLogRecord(logging.LogRecord):
-                """Custom Log Record, changes pathname and funcName"""
+                """Custom log record adapting pathname and function name metadata."""
                 def __init__(self, *args, **kwargs):
                     super().__init__(*args, **kwargs)
                     self.pathname = sys.modules.get(func.__module__).__file__
@@ -143,7 +157,21 @@ class Time:
 
     @staticmethod
     def _unit_to_seconds_factor(unit: str) -> float:
-        """Return the multiplier that converts an elapsed value in ``unit`` to seconds."""
+        """
+        Return the multiplier that converts elapsed values in ``unit`` to seconds.
+
+        Parameters
+        ----------
+        - unit (str): Time unit identifier (e.g., ``'s'``, ``'ms'``, ``'h'``).
+
+        Returns
+        -------
+        - float: Multiplicative factor to transform the specified unit into seconds.
+
+        Raises
+        ------
+        - ValueError: If the supplied ``unit`` is not supported.
+        """
         factors = {
             's': 1.0, 'sec': 1.0, 'second': 1.0, 'seconds': 1.0,
             'ms': 1e-3, 'millisecond': 1e-3, 'milliseconds': 1e-3,
@@ -171,6 +199,10 @@ class Time:
         Returns
         -------
         - datetime_list (list of datetime): Corresponding datetime objects.
+
+        Raises
+        ------
+        - ValueError: If ``unit`` is not recognised by ``_unit_to_seconds_factor``.
         """
         factor = Time._unit_to_seconds_factor(unit)
         return [Time.ref_time + timedelta(seconds=float(elapsed) * factor) for elapsed in elapsed_list]
@@ -188,13 +220,27 @@ class Time:
         Returns
         -------
         - elapsed_list (list of float): Elapsed values in the requested unit.
+
+        Raises
+        ------
+        - ValueError: If ``unit`` is not recognised by ``_unit_to_seconds_factor``.
         """
         factor = Time._unit_to_seconds_factor(unit)
         return [((dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)) - Time.ref_time).total_seconds() / factor for dt in datetime_list]
 
     @staticmethod
     def date2yday(x):
-        """Convert matplotlib datenum to days since 2018-01-01."""
+        """
+        Convert Matplotlib datenums to elapsed seconds relative to ``ref_time``.
+
+        Parameters
+        ----------
+        - x (Iterable[float]): Matplotlib datenum values to convert.
+
+        Returns
+        -------
+        - list[float]: Elapsed seconds corresponding to each datenum.
+        """
         y = []
         for dt in x:
             y.append((mdates.num2date(dt) - Time.ref_time).total_seconds())
@@ -202,7 +248,17 @@ class Time:
 
     @staticmethod
     def yday2date(x):
-        """Return a matplotlib datenum for *x* days after 2018-01-01."""
+        """
+        Convert elapsed seconds into Matplotlib datenums referenced to ``ref_time``.
+
+        Parameters
+        ----------
+        - x (Iterable[float]): Elapsed seconds to convert.
+
+        Returns
+        -------
+        - list[float]: Matplotlib datenum representation for each elapsed value.
+        """
         y = []
         for dt in x:
             print(dt)

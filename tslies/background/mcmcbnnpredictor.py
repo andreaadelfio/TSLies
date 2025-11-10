@@ -21,15 +21,44 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class MCMCBNNPredictor(MLObject):
-    """The class for the Bayesian Neural Network model optimized with MCMC."""
+    """Bayesian neural network predictor optimised via Monte Carlo sampling."""
     logger = Logger('MCMCBNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        """
+        Placeholder initialiser raising ``NotImplementedError`` until implemented.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Dataset containing features and targets.
+        - y_cols (List[str]): Target column names.
+        - x_cols (List[str]): Feature column names.
+        - y_pred_cols (Optional[List[str]]): Optional prediction column aliases.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX labels for plotting.
+        - with_generator (bool): Placeholder flag for generator-based pipelines.
+
+        Raises
+        ------
+        - NotImplementedError: Always raised because the predictor is not implemented yet.
+        """
         raise NotImplementedError('MCMCBNNPredictor is not implemented yet.')
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     def prior_trainable(self, kernel_size, bias_size=0, dtype=None):
+        """
+        Build a trainable prior distribution for Bayesian dense layers.
+
+        Parameters
+        ----------
+        - kernel_size (int): Number of weights in the kernel.
+        - bias_size (int): Number of bias parameters appended to the kernel.
+        - dtype (Optional[tf.DType]): Data type for the variables.
+
+        Returns
+        -------
+        - tf.keras.Sequential: Distribution-producing layer representing the prior.
+        """
         n = kernel_size + bias_size
         return tf_keras.Sequential([
             tfpl.VariableLayer(n, dtype=dtype),
@@ -39,6 +68,18 @@ class MCMCBNNPredictor(MLObject):
         ])
 
     def random_gaussian_initializer(self, shape, dtype):
+        """
+        Initialise concatenated location and scale parameters for variational layers.
+
+        Parameters
+        ----------
+        - shape (int): Total number of parameters (location + scale).
+        - dtype (tf.DType): Data type for the created variables.
+
+        Returns
+        -------
+        - tf.Tensor: Concatenated tensor containing initial location and scale values.
+        """
         n = int(shape / 2)
         loc_norm = tf.random_normal_initializer(mean=0., stddev=0.1)
         loc = tf.Variable(
@@ -51,6 +92,19 @@ class MCMCBNNPredictor(MLObject):
         return tf.concat([loc, scale], 0)
 
     def posterior_mean_field(self, kernel_size, bias_size=0, dtype=None):
+        """
+        Construct a mean-field posterior distribution for variational dense layers.
+
+        Parameters
+        ----------
+        - kernel_size (int): Number of kernel parameters.
+        - bias_size (int): Number of bias parameters.
+        - dtype (Optional[tf.DType]): Data type for the layer variables.
+
+        Returns
+        -------
+        - tf.keras.Sequential: Sequential layer producing posterior distributions.
+        """
         n = kernel_size + bias_size
         c = np.log(np.expm1(1.))
         return tf_keras.Sequential([
@@ -62,12 +116,33 @@ class MCMCBNNPredictor(MLObject):
         ])
 
     def normal_sp(self, params):
+        """
+        Convert variational parameters into a normal distribution for predictions.
+
+        Parameters
+        ----------
+        - params (tf.Tensor): Tensor containing mean and log-scale parameters.
+
+        Returns
+        -------
+        - tfd.Normal: Multivariate normal distribution representing outputs.
+        """
         return tfd.Normal(loc=params[:, :len(self.y_cols)],
                           scale=1e-5 + 0.00001 * tf_keras.backend.exp(params[:, len(self.y_cols):]))
 
     @logger_decorator(logger)
     def create_model(self):
-        """Builds the Bayesian Neural Network model."""
+        """
+        Assemble the dense variational architecture and compile it for training.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If configuration attributes required for layer construction are missing.
+        """
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols),)),
@@ -89,7 +164,21 @@ class MCMCBNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        """Trains the model using MCMC."""
+        """
+        Train the model parameters via MCMC sampling followed by fine-tuning.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: Keras history object from the final ``fit`` call.
+
+        Raises
+        ------
+        - NotImplementedError: If generator-based training is requested.
+        """
         # Define the MCMC transition kernel
         num_results = 1000
         num_burnin_steps = 500
@@ -131,13 +220,24 @@ class MCMCBNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Generate predictive distributions using the variational posterior samples.
+
         Parameters
         ----------
-            start (int): The starting index. Default is 0.
-            end (int): The ending index. Default is -1.
-            """
+        - start (Union[int, str]): Start index or timestamp for slicing data.
+        - end (Union[int, str]): End index or timestamp for slicing data.
+        - mask_column (str): Column used to filter the data frame between ``start`` and ``end``.
+        - write_bkg (bool): Persist background predictions to disk when ``True``.
+        - write_frg (bool): Persist foreground targets alongside predictions.
+        - num_batches (int): Number of batches used during inference.
+        - save_predictions_plot (bool): Save diagnostic plots when ``True``.
+        - support_variables (List[str]): Extra columns to add when plotting.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Ground-truth slice and prediction frame with uncertainties.: Empty slices return empty data frames.
+        """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:

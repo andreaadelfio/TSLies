@@ -30,5 +30,5 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[tool.setuptools]
-packages = ["tslies", "tslies.background", "tslies.examples"]
+[tool.setuptools.packages.find]
+include = ["tslies", "tslies.*"]

@@ -9,16 +9,43 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
 
 class SpectralDomainFFNNPredictor(MLObject):
-    """Feed-Forward Neural Network working in the frequency domain."""
+    """Feed-forward neural network operating on spectral features for background modelling."""
     logger = Logger('SpectralDomainFFNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):
+        """
+        Initialise the spectral-domain predictor with data and configuration metadata.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Data frame containing spectral features and targets.
+        - y_cols (List[str]): Target columns to forecast.
+        - x_cols (List[str]): Feature columns in the spectral domain.
+        - y_pred_cols (Optional[List[str]]): Optional aliases for prediction outputs.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX labels for plotting.
+        - units (Optional[List[int]]): Optional unit metadata for targets.
+        - with_generator (bool): Flag enabling generator-based training (not implemented).
+
+        Raises
+        ------
+        - ValueError: Propagated when base initialization detects missing prerequisites.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        """Builds the spectral-domain neural network model."""
+        """
+        Assemble and compile the dense network tailored to spectral features.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If layer configuration is missing.
+        """
         self.nn_r = tf_keras.Sequential()
         self.nn_r.add(tf_keras.Input(shape=(len(self.x_cols),)))
         for units in list(self.units_for_layers):
@@ -32,7 +59,17 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the spectral-domain feed-forward network and return the training history.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: History object containing loss and metric traces.
+        """
         history = self.nn_r.fit(
             self.X_train, self.y_train,
             validation_split=0.3,
@@ -45,7 +82,24 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]):
-        """Predicts the output and returns the result in time domain."""
+        """
+        Produce background predictions and optionally persist artefacts and plots.
+
+        Parameters
+        ----------
+        - start (Union[int, str]): Start index or timestamp for slicing data.
+        - end (Union[int, str]): End index or timestamp for slicing data.
+        - mask_column (str): Column used to filter data between ``start`` and ``end``.
+        - write_bkg (bool): Persist background predictions to disk when ``True``.
+        - write_frg (bool): Persist foreground targets alongside predictions (unused, kept for API parity).
+        - num_batches (int): Number of batches for inference (unused; kept for signature compatibility).
+        - save_predictions_plot (bool): Save prediction plots via ``Plotter`` when ``True``.
+        - support_variables (List[str]): Extra columns merged into the plotting data frame.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Ground-truth slice and predictions in the time domain.: Empty slices return empty data frames.
+        """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:

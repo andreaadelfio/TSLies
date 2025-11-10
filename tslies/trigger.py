@@ -104,6 +104,23 @@ class Trigger:
     logger = Logger('Trigger').get_logger()
 
     def __init__(self, tiles_df, y_cols, y_cols_pred, thresholds=None, trigger_type='z_score', units={}, latex_y_cols={}):
+        """
+        Configure a trigger pipeline combining residuals and thresholding.
+
+        Parameters
+        ----------
+        - tiles_df (pd.DataFrame): Data frame containing signals and predictions.
+        - y_cols (Iterable[str]): Column names representing observed signals.
+        - y_cols_pred (Iterable[str]): Column names representing predicted baselines.
+        - thresholds (Optional[dict[str, float]]): Per-face significance thresholds.
+        - trigger_type (str): Algorithm keyword, currently ``'z_score'`` or ``'focus'`` variants.
+        - units (dict[str, str]): Optional human-readable units per face.
+        - latex_y_cols (dict[str, str]): Optional LaTeX labels mapped by column.
+
+        Raises
+        ------
+        - ValueError: If provided thresholds do not cover all ``y_cols``.
+        """
         self.tiles_df = tiles_df
         self.y_cols = y_cols
         self.y_cols_pred = y_cols_pred
@@ -159,8 +176,17 @@ class Trigger:
 
     def focus_step_curve(self, curve_list, k_T, lambda_1):
         """
-        From the original python implementation of
-        FOCuS Poisson by Kester Ward (2021). All rights reserved.
+        Update the curve list according to the FOCuS Poisson formulation.
+
+        Parameters
+        ----------
+        - curve_list (list[Curve]): Current set of candidate curves.
+        - k_T (float): Observed count in the latest time bin.
+        - lambda_1 (float): Expected count under the null hypothesis.
+
+        Returns
+        -------
+        - tuple[list[Curve], float, int]: Updated curves, global maximum, and time offset.
         """
         if not curve_list:  # list is empty
             if k_T <= lambda_1:
@@ -194,7 +220,18 @@ class Trigger:
 
     def trigger_face_z_score(self, signal, face, reset_indices, threshold):
         """
-        Calculates the z-score of the signal and the offset of the change point.
+        Flag bins where the residual z-score exceeds the configured threshold.
+
+        Parameters
+        ----------
+        - signal (np.ndarray): Residual z-score signal.
+        - face (str): Identifier of the monitored face.
+        - reset_indices (np.ndarray): Indices where the rolling detector resets.
+        - threshold (float): Cut-off value for trigger activation.
+
+        Returns
+        -------
+        - dict[str, np.ndarray]: Boolean trigger flags and time offsets per face.
         """
         result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0}
         return result
