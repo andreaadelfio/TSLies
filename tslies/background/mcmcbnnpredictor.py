@@ -21,12 +21,13 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class MCMCBNNPredictor(MLObject):
-    '''The class for the Bayesian Neural Network model optimized with MCMC.'''
+    """The class for the Bayesian Neural Network model optimized with MCMC."""
     logger = Logger('MCMCBNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        raise NotImplementedError('MCMCBNNPredictor is not implemented yet.')
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     def prior_trainable(self, kernel_size, bias_size=0, dtype=None):
         n = kernel_size + bias_size
@@ -66,7 +67,7 @@ class MCMCBNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the Bayesian Neural Network model.'''
+        """Builds the Bayesian Neural Network model."""
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols),)),
@@ -88,7 +89,7 @@ class MCMCBNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model using MCMC.'''
+        """Trains the model using MCMC."""
         # Define the MCMC transition kernel
         num_results = 1000
         num_burnin_steps = 500
@@ -119,35 +120,24 @@ class MCMCBNNPredictor(MLObject):
             if isinstance(layer, tfpl.DenseVariational):
                 layer.kernel_posterior = tfd.Normal(loc=samples[i][0], scale=samples[i][1])
 
-        # Train the model
-        es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
-                           patience=10, start_from_epoch=190)
-        mc = ModelCheckpoint(self.model_path,
-                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
-
-        if not self.lr:
-            callbacks = [self.custom_callback(self)]
-        else:
-            call_lr = LearningRateScheduler(self.scheduler)
-        callbacks = [mc, self.custom_callback(self)]
 
         if self.with_generator:
-            history = self.nn_r.fit(self.df_data, epochs=self.epochs, batch_size=32, validation_split=0.3)
+            raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
             history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs, validation_split=0.3,
-                                    callbacks=callbacks)
+                                    callbacks=self.callbacks)
 
         return history
 
     @logger_decorator(logger)
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. Default is 0.
             end (int): The ending index. Default is -1.
-            '''
+            """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:
@@ -185,7 +175,7 @@ class MCMCBNNPredictor(MLObject):
                     path = os.path.dirname(self.model_path)
                 File.write_df_on_file(df_ori, os.path.join(path, 'frg'))
         if save_predictions_plot:
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred)
             self.save_predictions_plots(tiles_df, start, end, self.params)
         return df_ori, y_pred
     

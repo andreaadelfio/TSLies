@@ -1,7 +1,7 @@
-'''
+"""
 K-Nearest Neighbors predictors for time series anomaly detection.
 Contains implementations of median and mean-based KNN regressors.
-'''
+"""
 import pandas as pd
 import numpy as np
 from sklearn.multioutput import MultiOutputRegressor
@@ -11,12 +11,12 @@ from ..utils import Logger, logger_decorator
 
 
 class MedianKNeighborsRegressor(KNeighborsRegressor):
-    '''The class for the Median K-Nearest Neighbors model.'''
+    """The class for the Median K-Nearest Neighbors model."""
     logger = Logger('MedianKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
     def predict(self, X):
-        '''Predict the target for the provided data.
+        """Predict the target for the provided data.
 
         Parameters
         ----------
@@ -28,7 +28,7 @@ class MedianKNeighborsRegressor(KNeighborsRegressor):
         -------
         y : ndarray of shape (n_queries,) or (n_queries, n_outputs), dtype=int
             Target values.
-        '''
+        """
         if self.weights == "uniform":
             # In that case, we do not need the distances to perform
             # the weighting so we do not compute them.
@@ -53,18 +53,16 @@ class MedianKNeighborsRegressor(KNeighborsRegressor):
 
 
 class MultiMedianKNeighborsRegressor():
-    '''The class for the Multi Median K-Nearest Neighbors model.'''
+    """The class for the Multi Median K-Nearest Neighbors model."""
     logger = Logger('MultiMedianKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw=None, y_pred_cols=None, y_smooth_cols=None, latex_y_cols=None, with_generator=False):
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
         self.y_cols = y_cols
         self.x_cols = x_cols
         self.df_data = df_data
         # Optional parameters for consistency with MLObject interface
-        self.y_cols_raw = y_cols_raw or y_cols
         self.y_pred_cols = y_pred_cols or y_cols
-        self.y_smooth_cols = y_smooth_cols or y_cols
         self.latex_y_cols = latex_y_cols
         self.with_generator = with_generator
 
@@ -91,18 +89,16 @@ class MultiMedianKNeighborsRegressor():
 
 
 class MultiMeanKNeighborsRegressor():
-    '''The class for the Multi Mean K-Nearest Neighbors model.'''
+    """The class for the Multi Mean K-Nearest Neighbors model."""
     logger = Logger('MultiMeanKNeighborsRegressor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw=None, y_pred_cols=None, y_smooth_cols=None, latex_y_cols=None, with_generator=False):
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
         self.y_cols = y_cols
         self.x_cols = x_cols
         self.df_data = df_data
         # Optional parameters for consistency with MLObject interface
-        self.y_cols_raw = y_cols_raw or y_cols
         self.y_pred_cols = y_pred_cols or y_cols
-        self.y_smooth_cols = y_smooth_cols or y_cols
         self.latex_y_cols = latex_y_cols
         self.with_generator = with_generator
 

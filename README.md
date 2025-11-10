@@ -37,15 +37,18 @@ pip install -e .
 
 ### Python Dependencies
 Core packages include:
-- `tensorflow>=2.16.0` (neural networks)
-- `tensorflow-probability>=0.23.0` (Bayesian models)
-- `tf-keras>=2.16.0` (Keras integration)
-- `pandas>=1.3.0` (data manipulation)
-- `scikit-learn>=1.0.0` (classical ML)
-- `matplotlib>=3.5.0` (visualization)
-- `seaborn>=0.11.0` (advanced plotting)
-- `numpy>=1.21.0` (numerical computing)
-- `astropy>=5.0.0` (astronomical data formats)
+
+- `tensorflow==2.18.0"`
+- `tensorflow-probability==0.25.0"`
+- `tf_keras==2.18.0"`
+- `keras==3.7.0"`
+- `numpy==1.26.4"`
+- `pandas==2.2.2"`
+- `scikit-learn`
+- `scipy==1.13.1"`
+- `matplotlib==3.8.4"`
+- `seaborn==0.13.2"`
+- `tqdm==4.66.4"`
 
 ## Main Features
 
@@ -193,7 +196,7 @@ Intesa Sanpaolo application:
 2. **Train a background model**:
    ```python
    # Create and train a neural network background model
-   model = FFNNPredictor(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols)
+   model = FFNNPredictor(df_data, y_cols, x_cols, y_pred_cols)
    model.set_hyperparams(params)
    model.create_model()
    history = model.train()
@@ -202,7 +205,7 @@ Intesa Sanpaolo application:
 3. **Run anomaly detection**:
    ```python
    # Apply FOCuS algorithm for changepoint detection
-   trigger = Trigger(tiles_df, y_cols, y_pred_cols, y_cols_raw, units, latex_y_cols)
+   trigger = Trigger(tiles_df, y_cols, y_pred_cols, units, latex_y_cols)
    anomalies, significance_df = trigger.run(thresholds, type='focus')
    ```
 
@@ -311,21 +314,27 @@ We welcome contributions to this Time Series Anomaly Detection Framework!
 - **FOCuS Algorithm**: Ward (2021)
 - **Research Community**: Open-source machine learning libraries and frameworks
 - **Computing Resources**: High-performance computing support
+- **ICSC**: 
 
 ---
 
 ### Citation
 If you use TSLies in your research, please cite:
 ```
-@software{adelfio2024tslies,
+@software{adelfio2025tslies,
   author = {Adelfio, Andrea},
   title = {TSLies: Time Series Anomaly Detection Framework},
   url = {https://github.com/andreaadelfio/TSLies},
-  year = {2024},
+  year = {2025},
   institution = {INFN}
 }
 ```
 
 <hr>
+
+### To-do
+- review docs
+- check dependencies
+- check __init__ files
 
 [Go to Top](#table-of-contents)

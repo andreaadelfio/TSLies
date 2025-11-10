@@ -1,4 +1,4 @@
-# '''
+# """
 # TSLies: Time Series Anomaly Detection Framework - Core Modules
 
 # This package contains the core modules for time series anomaly detection:
@@ -11,7 +11,7 @@
 
 # TSLies is domain-agnostic and can be applied to various time series data.
 # Domain-specific applications (like ACD data) are in the 'applications' package.
-# '''
+# """
 
 # # Core framework modules
 # from . import config

@@ -21,12 +21,12 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class PBNNPredictor(MLObject):
-    '''The class for the Probabilistic Bayesian Neural Network model.'''
+    """The class for the Probabilistic Bayesian Neural Network model."""
     logger = Logger('PBNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
     
     def prior_trainable(self, kernel_size, bias_size=0, dtype=None):
         n = kernel_size + bias_size
@@ -67,7 +67,7 @@ class PBNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the Bayesian Neural Network model.'''
+        """Builds the Bayesian Neural Network model."""
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols), )),
@@ -89,55 +89,23 @@ class PBNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
-        # es = tf_keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
-        #                    patience=10, start_from_epoch=190)
-        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path,
-                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
-        
-        # call_lr = tf_keras.callbacks.LearningRateScheduler(self.scheduler)
-        
-        callbacks = [self.custom_callback(self)]
-
+        """Trains the model."""
         if self.with_generator:
-            history = self.nn_r.fit(self.df_data, epochs=self.epochs, batch_size=32, validation_split=0.3)
+            raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
             history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs, validation_split=0.3,
-                      callbacks=callbacks)
+                      callbacks=self.callbacks)
         
-
-        # pred_train = nn_r.predict(self.X_train)
-        # pred_test = nn_r.predict(self.X_test)
-        # idx = 0
-        # text = ''
-        # for col in self.y_cols:
-        #     mae_tr = MAE(self.y_train.iloc[:, idx], pred_train[:, idx])
-        #     self.mae_tr_list.append(mae_tr)
-        #     mae_te = MAE(self.y_test.iloc[:, idx], pred_test[:, idx])
-        #     diff_i = (self.y_test.iloc[:, idx] - pred_test[:, idx])
-        #     mean_diff_i = (diff_i).mean()
-        #     meae_tr = MeAE(self.y_train.iloc[:, idx], pred_train[:, idx])
-        #     meae_te = MeAE(self.y_test.iloc[:, idx], pred_test[:, idx])
-        #     median_diff_i = (diff_i).median()
-        #     text += f"MAE_train_{col} : {mae_tr:0.5f}\t" + \
-        #             f"MAE_test_{col} : {mae_te:0.5f}\t" + \
-        #             f"mean_diff_test_pred_{col} : {mean_diff_i:0.5f}\t" + \
-        #             f"MeAE_train_{col} {meae_tr:0.5f}\t" + \
-        #             f"MeAE_test_{col} {meae_te:0.5f}\t" + \
-        #             f"median_diff_test_pred_{col} {median_diff_i:0.5f}\n"
-        #     idx = idx + 1
-
-        # nn_r.save(self.model_path)
         return history
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, runs=250, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=True, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. Default is 0.
-            end (int): The ending index. Defualt is -1.'''
+            end (int): The ending index. Defualt is -1."""
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()
@@ -178,6 +146,6 @@ class PBNNPredictor(MLObject):
                 File.write_df_on_file(df_ori, os.path.join(path, 'frg'))
         if save_predictions_plot:
             y_pred = y_pred.assign(**{col: y_pred[cols_init] for col, cols_init in zip(self.y_pred_cols, self.y_cols)}).drop(columns=self.y_cols)
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred)
             self.save_predictions_plots(tiles_df, start, end, self.params)
         return df_ori, y_pred

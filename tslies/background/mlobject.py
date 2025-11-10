@@ -4,33 +4,35 @@ import itertools
 import pandas as pd
 import numpy as np
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Tuple, Union, Optional
+from typing import List, Any, Tuple, Union, Optional
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import tensorflow.keras as tf_keras
 from tensorflow.keras.models import load_model
 
+from ..config import (
+    RESULTS_DIR,
+    BACKGROUND_PREDICTION_DIR,
+    require_base_dir,
+)
 from ..plotter import Plotter
 from .losses import CustomLosses
 
-now = pd.Timestamp.now()
-DATE_FOLDER = pd.Timestamp.date(now).strftime('%Y-%m-%d')
-TIME_FOLDER = pd.Timestamp.time(now).strftime('%H%M')
+BASE_DIR_PATH = require_base_dir()
 
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
+if RESULTS_DIR is None or BACKGROUND_PREDICTION_DIR is None:
+    raise RuntimeError(
+        "TSLies output directories are not initialised. Configure the base directory via "
+        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before using ML components."
+    )
 
-RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
-BACKGROUND_PREDICTION_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'background_prediction')
-# DATA_LATACD_PROCESSED_FOLDER_NAME = os.path.join(dir_path, 'data', 'latacd_processed')
-DIR = dir_path
+BACKGROUND_PREDICTION_FOLDER_NAME = str(BACKGROUND_PREDICTION_DIR)
+DIR = str(BASE_DIR_PATH)
 
 class MLObject(ABC):
-    '''Abstract base class for Machine Learning models with standardized interface.'''
+    """Abstract base class for Machine Learning models with standardized interface."""
     def __init__(self, df_data: pd.DataFrame, y_cols: List[str], x_cols: List[str], 
-                 y_cols_raw: List[str], y_pred_cols: List[str], y_smooth_cols: List[str], 
-                 latex_y_cols: Optional[List[str]] = None, units: Optional[List[int]] = None, with_generator: bool = False):
+                 y_pred_cols: Optional[List[str]] = None, latex_y_cols: Optional[List[str]] = None, units: Optional[List[int]] = None, with_generator: bool = False):
         self.model_name = self.__class__.__name__
         self.training_date = pd.Timestamp.time(pd.Timestamp.now()).strftime('%H%M')
         print(f'{self.model_name} - {self.training_date}')
@@ -39,9 +41,7 @@ class MLObject(ABC):
         self.x_cols = x_cols
         print(f'x_cols: {x_cols}')
         print(f'y_cols: {y_cols}')
-        self.y_cols_raw = y_cols_raw
-        self.y_pred_cols = y_pred_cols
-        self.y_smooth_cols = y_smooth_cols
+        self.y_pred_cols = y_pred_cols or [col + '_pred' for col in y_cols]
         self.latex_y_cols = latex_y_cols or y_cols
         self.units = units or {}
 
@@ -82,9 +82,10 @@ class MLObject(ABC):
         self.metrics = None
         self.epochs = None
         self.mae_tr_list = None
+        self.callbacks = None
 
     def get_hyperparams_combinations(self, hyperparams_combinations:dict, use_previous:bool=False) -> list:
-        '''Trims the hyperparameters combinations to avoid training duplicate models.
+        """Trims the hyperparameters combinations to avoid training duplicate models.
         
             Parameters:
             ----------
@@ -93,7 +94,7 @@ class MLObject(ABC):
                 
             Returns:
             --------
-                list: The hyperparameters combinations.'''
+                list: The hyperparameters combinations."""
         hyperparams_combinations_tmp = []
         uniques = set()
         model_id = 0
@@ -122,7 +123,7 @@ class MLObject(ABC):
         return hyperparams_combinations_tmp[int(first):]
 
     def set_hyperparams(self, params, use_previous=False):
-        '''Sets the hyperparameters for the model.
+        """Sets the hyperparameters for the model.
         
         Parameters:
         ----------
@@ -133,7 +134,7 @@ class MLObject(ABC):
             params = {'model_id': 0, 'units_1': 128, 'units_2': 128, 'units_3': 128,
                       'norm': True, 'drop': True, 'epochs': 100, 'bs': 32, 'do': 0.5,
                       'opt_name': 'Adam', 'lr': 0.001, 'loss_type': 'mean_squared_error'}
-            nn.set_hyperparams(params)'''
+            nn.set_hyperparams(params)"""
         self.params = params
         self.params['model_name'] = self.model_name
         self.params['training_date'] = self.training_date
@@ -172,7 +173,7 @@ class MLObject(ABC):
         self.set_metrics()
 
     def set_model(self, model_path: str, compile: bool = True):
-        '''Sets the model from the model path.
+        """Sets the model from the model path.
         
         Parameters:
         ----------
@@ -180,7 +181,7 @@ class MLObject(ABC):
             
         Returns:
         --------
-            Model: The model.'''
+            Model: The model."""
         if model_path is not None and model_path != '':
             if os.path.exists(model_path):
                 self.model_path = model_path
@@ -191,11 +192,11 @@ class MLObject(ABC):
         return self.nn_r
 
     def set_scalers(self, train_x: pd.DataFrame = None, train_y: pd.DataFrame = None):
-        '''Sets the scaler for the model.
+        """Sets the scaler for the model.
         
         Parameters:
         ----------
-            train (pd.DataFrame): The training data.'''
+            train (pd.DataFrame): The training data."""
         if train_x is None:
             train_x = self.df_data[self.x_cols]
         if train_y is None:
@@ -215,7 +216,7 @@ class MLObject(ABC):
         return self.scalers_params_dict
 
     def load_scalers(self):
-        '''Loads the scalers from the scalers.pkl file.'''
+        """Loads the scalers from the scalers.pkl file."""
         scalers_path = os.path.join(os.path.dirname(self.model_path), 'scalers.pkl')
         if not os.path.exists(scalers_path):
             raise FileNotFoundError(f'Scalers file not found: {scalers_path}')
@@ -230,11 +231,11 @@ class MLObject(ABC):
         self.scaler_y.feature_names_in_ = None
 
     def set_loss(self):
-        '''Sets a loss function or a combination of loss functions for the model.
+        """Sets a loss function or a combination of loss functions for the model.
         Parameters:
         ----------
             loss_type_list (list[str]): A list of loss function names.
-        '''
+        """
         self.loss_type_list = self.params['loss_type'].split('+')
         loss_functions = self.closses.get_loss_list()
 
@@ -249,7 +250,7 @@ class MLObject(ABC):
             self.loss = combined_loss
 
     def set_metrics(self):
-        '''Sets the metrics for the model.'''
+        """Sets the metrics for the model."""
         self.metrics_list = self.params['metrics'].split('+')
         metrics_functions = self.closses.get_metrics_list()
 
@@ -259,8 +260,18 @@ class MLObject(ABC):
                 metrics_list.append(metrics_functions[metric])
         self.metrics = metrics_list
 
+    def set_callbacks(self):
+        """Sets predefined and custom callbacks. """
+        # es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
+        #                    patience=10, start_from_epoch=190)
+        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path,
+                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
+        # call_lr = LearningRateScheduler(self.scheduler)
+        # custom_callback = self.custom_callback(self, 5)
+        self.callbacks = [mc]
+
     def scheduler(self, epoch, lr_actual):
-        '''The learning rate scheduler.'''
+        """The learning rate scheduler."""
         if epoch < 0.06 * self.epochs:
             return self.lr*1.25
         if 0.06 * self.epochs <= epoch < 0.20 * self.epochs:
@@ -270,13 +281,13 @@ class MLObject(ABC):
         return lr_actual
         
     def update_summary(self):
-        '''Updates the summary file with the model parameters'''
+        """Updates the summary file with the model parameters"""
         with open(self.model_params_path, 'a') as f:
             list_tmp = list(self.params.values()) + self.mae_tr_list
             f.write('\t'.join([str(value) for value in list_tmp] + ['\n']))
 
     class custom_callback(tf_keras.callbacks.Callback):
-        '''Custom callback class to end the model training and plot the predictions.'''
+        """Custom callback class to end the model training and plot the predictions."""
         def __init__(self, predictor, interval=5):
             super().__init__()
             self.predictor = predictor
@@ -319,7 +330,7 @@ class MLObject(ABC):
                 self.model.stop_training = True
 
     def save_predictions_plots(self, tiles_df, start, end, params):
-        '''Saves the prediction plots.'''
+        """Saves the prediction plots."""
         title = os.path.join(os.path.dirname(params['model_path']), f'tiles_{start}_{end}.png')
         Plotter(df=tiles_df, label=title).df_plot_tiles(self.y_cols, x_col='datetime', latex_y_cols=self.latex_y_cols, init_marker=',',
                                                         show=False, smoothing_key='pred', save=True, show_std=True, units=self.units, figsize=(5, 3))

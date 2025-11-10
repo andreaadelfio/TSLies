@@ -1,22 +1,19 @@
-'''
+"""
 Configuration file to identify features and targets between the dataframe columns.
 Defines column mappings, units, and visualization settings for time series analysis.
-'''
+"""
 
 h_names = ['hist_top', 'hist_Xpos', 'hist_Xneg', 'hist_Ypos', 'hist_Yneg']
 # h_names = ['histNorm_top', 'histNorm_Xpos', 'histNorm_Xneg', 'histNorm_Ypos', 'histNorm_Yneg']
 
-y_cols_raw = ['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg']
-y_cols_raw = ['top_low', 'top_middle', 'top_high', 'Xpos_low', 'Xpos_middle', 'Xpos_high', 'Xneg_low', 'Xneg_middle', 'Xneg_high', 'Ypos_low', 'Ypos_middle', 'Ypos_high', 'Yneg_low', 'Yneg_middle', 'Yneg_high']
-# y_cols_raw = ['top_low']
-# y_cols_raw = ['top_middle', 'top_high', 'Xpos_middle', 'Xpos_high', 'Xneg_middle', 'Xneg_high', 'Ypos_middle', 'Ypos_high', 'Yneg_middle', 'Yneg_high']
-# y_cols_raw = ['Xpos_middle']
-# y_cols_raw = [f'{col}_middle' for col in y_cols_raw]
-y_smooth_cols = [f'{col}_smooth' for col in y_cols_raw]
-# y_cols_raw = ['histNorm_top', 'histNorm_Xpos', 'histNorm_Xneg', 'histNorm_Ypos', 'histNorm_Yneg']
-# y_smooth_cols = ['histNorm_top_smooth', 'histNorm_Xpos_smooth', 'histNorm_Xneg_smooth', 'histNorm_Ypos_smooth', 'histNorm_Yneg_smooth']
-y_cols = y_cols_raw
-y_pred_cols = [col + '_pred' for col in y_cols_raw]
+y_cols = ['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg']
+y_cols = ['top_low', 'top_middle', 'top_high', 'Xpos_low', 'Xpos_middle', 'Xpos_high', 'Xneg_low', 'Xneg_middle', 'Xneg_high', 'Ypos_low', 'Ypos_middle', 'Ypos_high', 'Yneg_low', 'Yneg_middle', 'Yneg_high']
+# y_cols = ['top_low']
+# y_cols = ['top_middle', 'top_high', 'Xpos_middle', 'Xpos_high', 'Xneg_middle', 'Xneg_high', 'Ypos_middle', 'Ypos_high', 'Yneg_middle', 'Yneg_high']
+# y_cols = ['Xpos_middle']
+# y_cols = [f'{col}_middle' for col in y_cols]
+# y_cols = ['histNorm_top', 'histNorm_Xpos', 'histNorm_Xneg', 'histNorm_Ypos', 'histNorm_Yneg']
+y_pred_cols = [col + '_pred' for col in y_cols]
 
 # thresholds = {'top': 7, 'Xpos': 10, 'Ypos': 7, 'Xneg': 7, 'Yneg': 7}
 # thresholds = {'top_low': 5, 'top_middle': 7, 'top_high': 7, 'Xpos_low': 5, 'Xpos_middle': 7, 'Xpos_high': 7, 'Xneg_low': 5, 'Xneg_middle': 7, 'Xneg_high': 7, 'Ypos_low': 5, 'Ypos_middle': 7, 'Ypos_high': 7, 'Yneg_low': 5, 'Yneg_middle': 7, 'Yneg_high': 7}

@@ -17,16 +17,16 @@ from .mlobject import MLObject
 
 
 class BNNPredictor(MLObject):
-    '''The class for the Bayesian Neural Network model.'''
+    """The class for the Bayesian Neural Network model."""
     logger = Logger('BNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, units=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the Bayesian Neural Network model.'''
+        """Builds the Bayesian Neural Network model."""
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols), )),
@@ -43,35 +43,24 @@ class BNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
-        es = tf_keras.callbacks.EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
-                           patience=10, start_from_epoch=190)
-        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path,
-                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
-        
-        if not self.lr:
-            callbacks = [self.custom_callback(self)]
-        else:
-            call_lr = LearningRateScheduler(self.scheduler)
-        callbacks = [mc, self.custom_callback(self, 5)]
-
+        """Trains the model."""
         if self.with_generator:
-            history = self.nn_r.fit(self.df_data, epochs=self.epochs, batch_size=32, validation_split=0.3)
+            raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
             history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs, validation_split=0.3,
-                      callbacks=callbacks)
+                      callbacks=self.callbacks)
 
         return history
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. Default is 0.
             end (int): The ending index. Defualt is -1.
-            '''
+            """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:

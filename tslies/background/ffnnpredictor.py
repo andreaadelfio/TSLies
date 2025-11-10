@@ -18,16 +18,16 @@ from .mlobject import MLObject
 
 
 class FFNNPredictor(MLObject):
-    '''The class for the Feed Forward Neural Network model.'''
+    """The class for the Feed Forward Neural Network model."""
     logger = Logger('FFNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Creates the model.'''
+        """Creates the model."""
         inputs = Input(shape=(self.X_train.shape[1],))
         for count, units in enumerate(list(self.units_for_layers)):
             hidden = Dense(units, activation='relu')(inputs if count == 0 else hidden)
@@ -55,26 +55,12 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
-        
-        es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002, 
-                           patience=10, start_from_epoch=190)
-        mc = ModelCheckpoint(self.model_path, 
-                             monitor='val_loss', mode='min', verbose=0, save_best_only=True)
-        # batch_print_callback = LambdaCallback(on_epoch_end=lambda epoch,logs: self.predict(start='2024-05-08 20:30:00', end='2024-05-08 23:40:00', write_bkg=False, save_predictions_plot=True))
-        cc = self.custom_callback(self, 2)
-
-        if not self.lr:
-            callbacks = [es, mc, cc]
-        else:
-            call_lr = LearningRateScheduler(self.scheduler)
-            callbacks = [es, mc, call_lr, cc]
-
+        """Trains the model."""
         if self.with_generator:
-            history = self.nn_r.fit(self.df_data, epochs=self.epochs, batch_size=32, validation_split=0.3, callbacks=callbacks)
+            raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
             history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs,
-                            validation_split=0.3, callbacks=callbacks)
+                            validation_split=0.3, callbacks=self.callbacks)
         
         nn_r = load_model(self.model_path)
 
@@ -108,7 +94,7 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start:str|int = 0, end:str|int = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
@@ -120,7 +106,7 @@ class FFNNPredictor(MLObject):
             num_batches (int): The batch size for the prediction. Default is 1.
             save_predictions_plot (bool): Whether to save the predictions plot. Default is `False`.
             support_variables (list): The support variables to plot.
-        '''
+        """
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()

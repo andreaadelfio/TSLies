@@ -25,14 +25,14 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class RNNPredictor(MLObject):
-    logger = Logger('RNN').get_logger()
+    logger = Logger('RNNPredictor').get_logger()
 
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols, with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def reshape_data(self, x, y):
-        '''Reshapes the data for the RNN model.'''
+        """Reshapes the data for the RNN model."""
         y = y[self.params['timesteps']:]
         x = np.array([x[i:i + self.params['timesteps']] for i in np.arange(len(x) - self.params['timesteps'])])
         x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2]))
@@ -40,7 +40,7 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Creates the model.'''
+        """Creates the model."""
         
         inputs = Input(shape=(None, len(self.x_cols)))
         hidden = LSTM(90)(inputs)
@@ -69,7 +69,7 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
+        """Trains the model."""
         self.X_train, self.y_train = self.reshape_data(self.X_train, self.y_train)
         self.X_test, self.y_test = self.reshape_data(self.X_test, self.y_test)
         
@@ -84,7 +84,7 @@ class RNNPredictor(MLObject):
             call_lr = LearningRateScheduler(self.scheduler)
             callbacks = [es, mc, call_lr]
         history = self.nn_r.fit(self.X_train, self.y_train, epochs=self.epochs, batch_size=self.bs,
-                        validation_split=0.3, callbacks=callbacks)
+                        validation_split=0.3, callbacks=self.callbacks)
         
         nn_r = load_model(self.model_path)
 
@@ -118,14 +118,14 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        '''Predicts the output data.
+        """Predicts the output data.
         
         Parameters:
         ----------
             start (int): The starting index. (Default is 0).
             end (int): The ending index. (Defualt is -1).
             write (bool): If the predicted and original dataset will be written in a file. (Defualt is True)
-            batched (bool): If the dataset will be modeled in batch. (Defualt is False)'''
+            batched (bool): If the dataset will be modeled in batch. (Defualt is False)"""
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()
@@ -163,6 +163,6 @@ class RNNPredictor(MLObject):
                 File.write_df_on_file(df_ori, os.path.join(path, 'frg'))
         if save_predictions_plot:
             y_pred = y_pred.assign(**{col: y_pred[cols_init] for col, cols_init in zip(self.y_pred_cols, self.y_cols)}).drop(columns=self.y_cols)
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred)
             self.save_predictions_plots(tiles_df, start, end, self.params)
         return df_ori, y_pred

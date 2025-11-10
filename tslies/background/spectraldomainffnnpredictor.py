@@ -9,16 +9,16 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
 
 class SpectralDomainFFNNPredictor(MLObject):
-    '''Feed-Forward Neural Network working in the frequency domain.'''
-    logger = Logger('SpectralDomainFFNN').get_logger()
+    """Feed-Forward Neural Network working in the frequency domain."""
+    logger = Logger('SpectralDomainFFNNPredictor').get_logger()
 
     @logger_decorator(logger)
-    def __init__(self, df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=None, units=None, with_generator=False):
-        super().__init__(df_data, y_cols, x_cols, y_cols_raw, y_pred_cols, y_smooth_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
+    def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):
+        super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        '''Builds the spectral-domain neural network model.'''
+        """Builds the spectral-domain neural network model."""
         self.nn_r = tf_keras.Sequential()
         self.nn_r.add(tf_keras.Input(shape=(len(self.x_cols),)))
         for units in list(self.units_for_layers):
@@ -32,22 +32,20 @@ class SpectralDomainFFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        '''Trains the model.'''
-        mc = tf_keras.callbacks.ModelCheckpoint(self.model_path, monitor='val_loss', save_best_only=True)
-
+        """Trains the model."""
         history = self.nn_r.fit(
             self.X_train, self.y_train,
             validation_split=0.3,
             batch_size=self.bs,
             epochs=self.epochs,
-            callbacks=[mc, self.custom_callback(self)]
+            callbacks=self.callbacks
         )
 
         return history
 
     @logger_decorator(logger)
     def predict(self, start=0, end=-1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]):
-        '''Predicts the output and returns the result in time domain.'''
+        """Predicts the output and returns the result in time domain."""
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:
@@ -69,7 +67,7 @@ class SpectralDomainFFNNPredictor(MLObject):
             File.write_df_on_file(y_pred_df, os.path.join(path, 'bkg'))
 
         if save_predictions_plot:
-            tiles_df = Data.merge_dfs(df_data[self.y_cols_raw + ['datetime'] + support_variables], y_pred_df)
+            tiles_df = Data.merge_dfs(df_data[self.y_cols + ['datetime'] + support_variables], y_pred_df)
             self.save_predictions_plots(tiles_df, start, end, self.params)
 
         return df_data[self.y_cols], y_pred_df

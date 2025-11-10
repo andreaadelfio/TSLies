@@ -1,9 +1,11 @@
-'''
+"""
 Plotter module for plotting data points and curves.
-'''
+"""
 import os
-from datetime import timedelta
 import gc
+from pathlib import Path
+from datetime import timedelta
+
 import matplotlib.ticker as mticker
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
@@ -13,31 +15,40 @@ import numpy as np
 import seaborn as sns
 from sklearn.metrics import confusion_matrix
 
+from .config import (
+    RESULTS_DIR,
+    BACKGROUND_PREDICTION_DIR,
+    ANOMALIES_DIR,
+    ANOMALIES_PLOTS_DIR,
+)
 from .utils import Logger, logger_decorator, Time
 
-now = pd.Timestamp.now()
-DATE_FOLDER = pd.Timestamp.date(now).strftime('%Y-%m-%d')
-TIME_FOLDER = pd.Timestamp.time(now).strftime('%H%M')
+if (
+    RESULTS_DIR is None
+    or BACKGROUND_PREDICTION_DIR is None
+    or ANOMALIES_DIR is None
+    or ANOMALIES_PLOTS_DIR is None
+):
+    raise RuntimeError(
+        "TSLies output directories are not initialised. Configure the base directory via "
+        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before using tslies.plotter."
+    )
 
-dir_path = os.environ.get('TSLIES_DIR')
-if dir_path is None:
-    raise ValueError("TSLIES_DIR not set")
-
-RESULTS_FOLDER_NAME = os.path.join(dir_path, 'results', DATE_FOLDER)
-BACKGROUND_PREDICTION_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'background_prediction')
-TRIGGER_FOLDER_NAME = os.path.join(RESULTS_FOLDER_NAME, 'anomalies')
-PLOT_TRIGGER_FOLDER_NAME = os.path.join(TRIGGER_FOLDER_NAME, TIME_FOLDER, 'plots')
+RESULTS_FOLDER_NAME = str(RESULTS_DIR)
+BACKGROUND_PREDICTION_FOLDER_NAME = str(BACKGROUND_PREDICTION_DIR)
+TRIGGER_FOLDER_NAME = str(ANOMALIES_DIR)
+PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
 
 
 class Plotter:
-    '''
+    """
     This class provides methods for plotting data points and curves.
-    '''
+    """
     logger = Logger('Plotter').get_logger()
     
     @logger_decorator(logger)
     def __init__(self, x = None, y = None, df: pd.DataFrame = None, xy: dict = None, label = '', latex = False):
-        '''
+        """
         Initialize the Plotter object.
 
         Parameters:
@@ -47,7 +58,7 @@ class Plotter:
             df (pd.DataFrame): The y-coordinates of the data points (default: None).
             xy (dict): A dictionary of x, y, and smooth y values for multiple curves (default: None).
             label (str): The label for the plot (default: '').
-        '''
+        """
         self.x = x
         self.y = y
         self.df = df
@@ -63,14 +74,14 @@ class Plotter:
 
     # @logger_decorator(logger)
     # def plot_tiles(self, marker = '-', lw = 0.2, with_smooth = False, show = True):
-    #     '''
+    #     """
     #     Plot multiple curves as tiles.
 
     #     Parameters:
     #     ----------
     #         lw (float): Line width of the curves (default: 0.1).
     #         with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-    #     '''
+    #     """
     #     i = 0
     #     _, axs = plt.subplots(len(self.xy), 1, sharex=True)
     #     plt.tight_layout(pad = 0.4)
@@ -88,14 +99,14 @@ class Plotter:
 
     @logger_decorator(logger)
     def df_plot_corr_tiles(self, x_col, excluded_cols = None, marker = '-', ms = 1, lw = 0.1, smoothing_key = 'smooth', show = True):
-        '''
+        """
         Plot multiple curves as tiles.
 
         Parameters:
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-        '''
+        """
         if not excluded_cols:
             excluded_cols = []
         df_columns = [column for column in self.df.columns if f'_{smoothing_key}' not in column and column not in excluded_cols and column != 'datetime']
@@ -135,15 +146,15 @@ class Plotter:
             plt.show()
 
     @logger_decorator(logger)
-    def df_plot_tiles(self, y_cols, x_col, latex_y_cols, top_x_col = None, excluded_cols = None, init_marker = ',', lw = 0.1, smoothing_key = 'smooth', show = True, save = False, units = None, show_std=True, figsize=(12, 6)):
-        '''
+    def df_plot_tiles(self, y_cols, x_col, latex_y_cols=None, top_x_col=None, excluded_cols=None, init_marker=',', lw=0.1, smoothing_key='smooth', show=True, save=False, units=None, show_std=True, figsize=(12, 6)):
+        """
         Plot multiple curves as tiles.
 
         Parameters:
         ----------
             lw (float): Line width of the curves (default: 0.1).
             with_smooth (bool): Whether to plot smoothed curves as well (default: False).
-        '''
+        """
         if units is None:
             units = {}
         if not excluded_cols:
@@ -247,20 +258,6 @@ class Plotter:
             fig.savefig(
                 os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'Output.png'),
                 dpi=200, bbox_inches='tight')
-            
-
-    # @logger_decorator(logger)
-    # def plot_pred_true(self, tiles_df, col_pred=['top_pred', 'Xpos_pred', 'Xneg_pred', 'Ypos_pred', 'Yneg_pred'], y_cols_raw=['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg']):
-    #     with sns.plotting_context("talk"):
-    #         fig = plt.figure("pred_vs_true", layout="tight")
-    #         fig.set_size_inches(24, 12)
-    #         plt.axis('equal')
-    #         plt.plot(tiles_df[y_cols_raw], tiles_df[col_pred], '.', alpha=0.2)
-    #         min_y, max_y = min(tiles_df[col_pred].min()), max(tiles_df[col_pred].max())
-    #         plt.plot([min_y, max_y], [min_y, max_y], '-')
-    #         plt.xlabel('True signal')
-    #         plt.ylabel('Predicted signal')
-    #     plt.legend(y_cols_raw)
 
     @logger_decorator(logger)
     def plot_history(self, history):
@@ -277,7 +274,7 @@ class Plotter:
 
     @logger_decorator(logger)
     def plot_correlation_matrix(self, show = True, save = False):
-        '''Function to plot the correlation matrix.'''
+        """Function to plot the correlation matrix."""
         correlations = self.df.corr()
         plt.figure(figsize=(18, 18), num='correlations_matrix')
         sns.heatmap(correlations, annot=True, cmap='coolwarm', fmt=".2f")
@@ -291,7 +288,7 @@ class Plotter:
 
     @logger_decorator(logger)
     def plot_confusion_matrix(self, y_true, y_pred, show = True):
-        '''Function to plot the confusion matrix.'''
+        """Function to plot the confusion matrix."""
         cm = confusion_matrix(y_true, y_pred)
         plt.figure(figsize=(10, 8), num='confusion_matrix')
         sns.heatmap(cm, annot=True, cmap='coolwarm', fmt=".2f")
@@ -307,45 +304,22 @@ class Plotter:
         return sorted_df
     
     @logger_decorator(logger)
-    def plot_anomalies_in_catalog(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, only_in_catalog=True, save=True, show=False, extension='png', units={}, latex_y_cols={}, detections_file_path='', catalog=None):
-        '''Plots the anomalies passed as `df` in Plotter.'''
-        
-        detections_df = self.read_detections_files(detections_file_path)
-        
-        results = {}
-        if catalog is not None and not catalog.empty:
-            for detection in detections_df.itertuples():
-                comparison_df = catalog[
-                    ((catalog['TIME'] <= np.datetime64(detection.start_datetime)) & (np.datetime64(detection.start_datetime) <= catalog['END_TIME'])) |
-                    ((catalog['TIME'] <= np.datetime64(detection.stop_datetime)) & (np.datetime64(detection.stop_datetime) <= catalog['END_TIME']))
-                ]
-                if len(comparison_df) > 0:
-                    for row in comparison_df.itertuples():
-                        if row not in [result['catalog_triggers'] for result in results.values()] or detection.start_datetime.strftime('%Y-%m-%d %H:%M:%S') not in results:
-                            results[detection.start_datetime.strftime('%Y-%m-%d %H:%M:%S')] = {
-                                'det_start_met': detection.start_met,
-                                'det_stop_met': detection.stop_met,
-                                'det_start_datetime': detection.start_datetime,
-                                'det_stop_datetime': detection.stop_datetime,
-                                'det_faces': detection.triggered_faces,
-                                'catalog_triggers': [row._asdict()]
-                            }
-                        else:
-                            results[detection.start_met]['catalog_triggers'] += row._asdict()
-
-        for an_time, anomalies in tqdm(self.df.items(), desc=f'Plotting anomalies with {trigger_algo_type}'):
+    def plot_anomalies_in_catalog(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, save=True, show=False, extension='png', units={}, latex_y_cols={}, detections_file_path='', catalog=None):
+        """Plots the anomalies passed as `df` in Plotter."""
+        for an_time, anomalies in tqdm(self.df.items(), desc='Plotting anomalies'):
             faces = list(anomalies.keys())
 
             anomaly_end = -1
             anomaly_start = tiles_df.index[-1]
+            in_catalog = False
             for anomaly in anomalies.values():
                 if anomaly['stop_index'] > anomaly_end:
                     anomaly_end = anomaly['stop_index']
                 if anomaly['start_index'] < anomaly_start:
                     anomaly_start = anomaly['start_index']
-            in_catalog = tiles_df['datetime'][anomaly_start].strftime('%Y-%m-%d %H:%M:%S') in results
-            if not in_catalog and only_in_catalog:
-                continue
+                if 'catalog_triggers' in anomaly:
+                    cat_event = anomaly['catalog_triggers'][0]
+                    in_catalog = True
             
             num_signal_residual_pairs = len(y_cols)
             num_support_vars = len(support_vars)
@@ -359,18 +333,16 @@ class Plotter:
             gss.append(GridSpecFromSubplotSpec(1, 1, subplot_spec=gs0[-1], hspace=0.))
 
             axs = []
-            if in_catalog:
-                cat_event = results[tiles_df['datetime'][anomaly_start].strftime('%Y-%m-%d %H:%M:%S')]['catalog_triggers'][0]
             anomaly_duration = anomaly_end - int(anomaly_start)
             anomaly_delta = max((anomaly_duration) // 5, 120)
             start = max(int(anomaly_start) - anomaly_delta, 0)
             end = min(anomaly_end + anomaly_delta, len(tiles_df))
             start_xlim = tiles_df['datetime'][int(anomaly_start)] - timedelta(seconds=anomaly_delta)
             end_xlim = tiles_df['datetime'][anomaly_end] + timedelta(seconds=anomaly_delta-1)
-
             tiles_df_subset = tiles_df[start:end]
-
-            latex_faces = [latex_y_cols[col] for col in faces]
+            if not latex_y_cols:
+                latex_y_cols = {col: col for col in faces if col in tiles_df_subset}
+            latex_faces = [f'${latex_y_cols[col]}$' for col in faces if col in latex_y_cols]
             i = 0
             for face, face_pred in zip(y_cols, y_pred_cols):
                 formatter = mticker.ScalarFormatter(useMathText=True)
@@ -429,12 +401,12 @@ class Plotter:
                 ax_residuals.axhline(thresholds[face], color="darkorange", ls='-.', label=f"${thresholds[face]}\\sigma$ threshold")
                 ax_residuals.plot(tiles_df_subset['datetime'], tiles_df_subset[f'{face}_significance'],
                                 color="blue", label=f"$S_{{{trigger_algo_type}}}$", lw=0.7)
-                ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face], label=f'${latex_y_cols[face]}$',
+                ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face], label=f'${latex_y_cols[face]}$' if face in latex_y_cols else "N/A",
                             color=face_color)
                 ax_signal.plot(tiles_df_subset['datetime'], tiles_df_subset[face_pred], label='background',
                             color='red')
                 ax_signal.yaxis.set_major_formatter(formatter)
-                ax_signal.set_ylabel(f'$[{units[face]}]$')
+                ax_signal.set_ylabel(f'$[{units[face]}]$' if face in units else "N/A")
                 ax_signal.legend(loc="upper right")
                 ax_residuals.legend(loc="upper right")
                 ax_signal.set_ylim(min(tiles_df_subset[face]), 1.01 * max(tiles_df_subset[face]))
@@ -470,7 +442,7 @@ class Plotter:
             axs[-1].set_xlim(start_xlim, end_xlim)
             start_datetime = tiles_df['datetime'][int(anomaly_start)].strftime('%Y-%m-%d %H:%M:%S')
             axs[-1].set_xlabel(f"datetime ({start_datetime})")
-            axs[0].set_title(f"Triggers with {trigger_algo_type} in ${', '.join(latex_faces)}$, $t_{{{'trigger'}}}$={start_datetime}, duration={anomaly_duration}s")
+            axs[0].set_title(f"Triggers with {trigger_algo_type} in {', '.join(latex_faces)}, $t_{{{'trigger'}}}$={start_datetime}, duration={anomaly_duration}s")
 
             if save:
                 path_name = f"{start_datetime}_{'_'.join(faces)}_{cat_event['NAME']}_{cat_event['CAT_NAME']}" if in_catalog else f"{start_datetime}_{'_'.join(faces)}"
@@ -481,21 +453,10 @@ class Plotter:
                 plt.show()
             plt.close('all')
 
-        results_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'comparison_results.csv')
-        if not os.path.exists(results_path):
-            results_df = pd.DataFrame(results.values())
-        else:
-            results_df = pd.read_csv(results_path)
-            results_df = pd.concat([results_df, pd.DataFrame(results.values())])
-        if results_df.empty:
-            return
-        results_df.to_csv(results_path, index=False)
-
-
     
     @logger_decorator(logger)
     def plot_anomalies(self, trigger_algo_type, support_vars, thresholds, tiles_df, y_cols, y_pred_cols, save=True, show=False, extension='png', units={}, latex_y_cols={}):
-        '''Plots the anomalies passed as `df` in Plotter.'''
+        """Plots the anomalies passed as `df` in Plotter."""
         for an_time, anomalies in tqdm(self.df.items(), desc=f'Plotting anomalies with {trigger_algo_type}'):
             faces = list(anomalies.keys())
             
@@ -610,18 +571,37 @@ class Plotter:
     @logger_decorator(logger)
     @staticmethod
     def show():
-        '''Shows the plots'''
+        """Shows the plots"""
         plt.show()
 
     @logger_decorator(logger)
     @staticmethod
-    def save(folder_name = '.', params = None, indexes: tuple = None):
-        '''Saves the plots'''
-        folder_name = os.path.dirname(params['model_path']) if params else folder_name
+    def save(params = None, folder_name = BACKGROUND_PREDICTION_FOLDER_NAME, indexes: tuple = None):
+        """Saves the plots"""
+        target_path = None
+        if params and isinstance(params, dict) and 'model_path' in params:
+            target_path = Path(params['model_path']).parent
+        elif folder_name:
+            target_path = Path(folder_name)
+        else:
+            target_path = Path(BACKGROUND_PREDICTION_FOLDER_NAME)
+
+        if target_path.suffix:
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            file_target = target_path
+            folder_target = target_path.parent
+        else:
+            target_path.mkdir(parents=True, exist_ok=True)
+            file_target = None
+            folder_target = target_path
+
         for i in plt.get_fignums():
             title = plt.figure(i).get_label()
             name = f'{title}.png' if not indexes else f'{title}_{indexes[0]}_{indexes[1]}.png'
-            plt.savefig(os.path.join(folder_name, name) if not folder_name.endswith('png') else folder_name)
+            if file_target is not None:
+                plt.savefig(str(file_target))
+            else:
+                plt.savefig(str(folder_target / name))
         plt.close('all')
 
 if __name__ == '__main__':
