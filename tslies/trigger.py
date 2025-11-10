@@ -14,7 +14,9 @@ import bisect
 from .config import (
     RESULTS_DIR,
     ANOMALIES_DIR,
+    ANOMALIES_TIME_DIR,
     ANOMALIES_PLOTS_DIR,
+    require_existing_dir
 )
 from .plotter import Plotter
 from .utils import Data, Logger, logger_decorator
@@ -26,6 +28,7 @@ if RESULTS_DIR is None or ANOMALIES_DIR is None or ANOMALIES_PLOTS_DIR is None:
     )
 
 TRIGGER_FOLDER_NAME = str(ANOMALIES_DIR)
+TRIGGER_TIME_FOLDER_NAME = str(ANOMALIES_TIME_DIR)
 PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
 
 
@@ -256,14 +259,9 @@ class Trigger:
             `y_cols` (list): list of columns to be used for the trigger
             `y_pred_cols` (list): list of columns containing the predictions
 
-        Returns:
+        Returns
             dict: dict containing the anomalies
         """
-        if not os.path.exists(TRIGGER_FOLDER_NAME):
-            os.makedirs(TRIGGER_FOLDER_NAME)
-        if not os.path.exists(PLOT_TRIGGER_FOLDER_NAME):
-            os.makedirs(PLOT_TRIGGER_FOLDER_NAME)
-
         if reset_condition is None:
             reset_condition = np.zeros(len(self.tiles_df), dtype=bool)
         reset_indices = np.where(reset_condition)[0]
@@ -295,7 +293,7 @@ class Trigger:
         self.tiles_df['anomaly'] = self.mask.astype(int)
         return self.tiles_df
 
-    def identify_and_merge_triggers(self, file='', merge_interval=3):
+    def identify_and_merge_triggers(self, merge_interval=3):
         triggs_df = pd.DataFrame(self.triggs_dict)
         triggs_df['datetime'] = self.tiles_df['datetime']
         self.return_df = triggs_df.copy()
@@ -306,9 +304,6 @@ class Trigger:
 
         if triggs_df.empty:
             self.logger.info('No triggers detected.')
-            self.detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections_{file}.csv') if file else os.path.join(PLOT_TRIGGER_FOLDER_NAME, 'detections.csv')
-            with open(self.detections_file_path, 'w') as f:
-                f.write("start_datetime,stop_datetime,start_met,stop_met,triggered_faces\n")
             return {}, self.return_df
 
         for face in self.y_cols:
@@ -349,41 +344,24 @@ class Trigger:
                     bisect.insort(merged_starts, start)
                 if old_start in merged_starts and old_start != start:
                     merged_starts.remove(old_start)
-
             else:
                 self.merged_anomalies[start] = {face: {'start_index': start, 'stop_index': stopping_time, 'start_datetime': start_datetime, 'stop_datetime': stop_datetime}}
                 bisect.insort(merged_starts, start)
+
         print(f'{len(self.merged_anomalies)} anomalies in total.')
-
-
         return self.merged_anomalies, self.return_df
     
-    def save_detections_csv(self, file=''):
-        file = f'_{file}' if file else ''
-        self.detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections{file}.csv')
-
-        detections = {'start_datetime': [], 'stop_datetime': [], 'triggered_faces': []}
-
-        for _, anomaly in sorted(self.merged_anomalies.items(), key=lambda x: int(x[0]), reverse=True):
-            start_idx = int(min(face['start_index'] for face in anomaly.values()))
-            end_idx = int(max(face['stop_index'] for face in anomaly.values()))
-            triggered_faces = list(anomaly.keys())
-
-            start_row = self.tiles_df.iloc[start_idx]
-            end_row = self.tiles_df.iloc[end_idx]
-
-            detections['start_datetime'].append(start_row['datetime'])
-            detections['stop_datetime'].append(end_row['datetime'])
-            detections['triggered_faces'].append('/'.join(triggered_faces))
-
-        detections_df = pd.DataFrame(detections)
-        detections_df.to_csv(self.detections_file_path, index=False)
-    
-    def save_detections_csv_for_acd(self, file=''):
-        file = f'_{file}' if file else ''
-        self.detections_file_path = os.path.join(PLOT_TRIGGER_FOLDER_NAME, f'detections{file}.csv')
-        
-        detections = {'start_datetime': [], 'stop_datetime': [], 'start_met': [], 'stop_met': [], 'triggered_faces': []}
+    def get_detections_df(self, cols=[]) -> pd.DataFrame:
+        detections = {}
+        default_cols = ['datetime', 'timestamp']
+        first_anomaly = next(iter(self.merged_anomalies.values()), {})
+        first_face = next(iter(first_anomaly.values()), {})
+        keys = [def_col for key in first_face.keys() for def_col in default_cols if def_col in key]
+        keys = set(keys + cols)
+        for key in keys:
+            detections[f'start_{key}'] = []
+            detections[f'stop_{key}'] = []
+        detections['triggered_faces'] = []
 
         for _, anomaly in sorted(self.merged_anomalies.items(), key=lambda x: int(x[0]), reverse=True):
             start_idx = int(min(face['start_index'] for face in anomaly.values()))
@@ -393,40 +371,46 @@ class Trigger:
             start_row = self.tiles_df.iloc[start_idx]
             end_row = self.tiles_df.iloc[end_idx]
 
-            detections['start_datetime'].append(start_row['datetime'])
-            detections['stop_datetime'].append(end_row['datetime'])
-            detections['start_met'].append(start_row['MET'])
-            detections['stop_met'].append(end_row['MET'])
             detections['triggered_faces'].append('/'.join(triggered_faces))
+            for key in keys:
+                detections[f'start_{key}'].append(start_row[key])
+                detections[f'stop_{key}'].append(end_row[key])
 
-        self.detections_df = pd.DataFrame(detections)
-        self.detections_df.to_csv(self.detections_file_path, index=False)
+        return pd.DataFrame(detections)
 
-    def filter_from_catalog(self, catalog, merged_anomalies=None, detections_df=None):
+    def save_detections_csv(self, detections_df: pd.DataFrame, file='', suffix=''):
+        require_existing_dir(TRIGGER_TIME_FOLDER_NAME)
+        file = f'_{file}' if file else ''
+
+        detections_file_path = os.path.join(TRIGGER_TIME_FOLDER_NAME, f'detections{file}.csv')
+        detections_file_path = detections_file_path.replace('.csv', f'{suffix}.csv')
+        detections_df.to_csv(detections_file_path, index=False)
+
+    def filter_from_catalog(self, catalog : pd.DataFrame, merged_anomalies=None, detections_df : pd.DataFrame=None) -> tuple[pd.DataFrame, dict]:
         if catalog is None or catalog.empty:
-            return None
+            raise ValueError("Catalog parameter is None or empty.")
         if detections_df is None:
-            detections_df = self.detections_df.copy()
+            detections_df = self.get_detections_df()
 
-        matches = []
-        for detection in detections_df.itertuples(index=False):
-            start_dt = np.datetime64(detection.start_datetime)
-            stop_dt = np.datetime64(detection.stop_datetime)
-            comparison_df = catalog[
-                ((catalog['TIME'] <= start_dt) & (start_dt <= catalog['END_TIME']))
-                | ((catalog['TIME'] <= stop_dt) & (stop_dt <= catalog['END_TIME']))
-            ]
+        catalog_times = catalog['TIME'].to_numpy(dtype='datetime64[ns]')
+        catalog_end_times = catalog['END_TIME'].to_numpy(dtype='datetime64[ns]')
+        starts = detections_df['start_datetime'].to_numpy(dtype='datetime64[ns]')
+        stops = detections_df['stop_datetime'].to_numpy(dtype='datetime64[ns]')
+        
+        match_matrix = (
+            ((starts[:, None] >= catalog_times) & (starts[:, None] <= catalog_end_times))
+            | ((stops[:, None] >= catalog_times) & (stops[:, None] <= catalog_end_times))
+        )
 
-            if comparison_df.empty:
-                matches.append(np.nan)
-            else:
-                matches.append([row._asdict() for row in comparison_df.itertuples(index=False)])
+        matches = [
+            catalog.iloc[idx].to_dict('records') if idx.size else np.nan
+            for idx in (np.flatnonzero(match_matrix_row) for match_matrix_row in match_matrix)
+        ]
 
         detections_df = detections_df.copy()
         detections_df['catalog_triggers'] = matches
-        detections_df = detections_df[detections_df['catalog_triggers'].notna()]
-        detections_file_path = self.detections_file_path.replace('.csv', '_in_catalog.csv')
-        detections_df.to_csv(detections_file_path, index=False)
+        detections_df.dropna(subset=['catalog_triggers'], inplace=True)
+        detections_df.reset_index(drop=True, inplace=True)
 
         results_dict = {}
         for an_time, anomalies in merged_anomalies.items():
@@ -439,15 +423,14 @@ class Trigger:
                     results_dict[an_time][key]['catalog_triggers'] = match['catalog_triggers'].iloc[0]
 
         return detections_df, results_dict
-        
 
-    def plot_anomalies(self, merged_anomalies=None, return_df=None, support_vars=[], catalog=None, show=False):
+    def plot_anomalies(self, merged_anomalies=None, return_df=None, support_vars=[], show=False):
         if merged_anomalies is None:
             merged_anomalies = self.merged_anomalies
         if return_df is None:
             return_df = self.return_df
-        self.tiles_df = Data.merge_dfs(self.tiles_df[self.y_cols + self.y_cols_pred + support_vars + ['datetime'] + [f'{y_col}_std' for y_col in self.y_cols]], return_df, on_column='datetime')
-        Plotter(df = merged_anomalies).plot_anomalies_in_catalog(self.trigger_type, support_vars, self.thresholds, self.tiles_df, self.y_cols, self.y_cols_pred, show=show, units=self.units, latex_y_cols=self.latex_y_cols, detections_file_path=self.detections_file_path, catalog=catalog)
+        tiles_df = Data.merge_dfs(self.tiles_df[self.y_cols + self.y_cols_pred + support_vars + ['datetime'] + [f'{y_col}_std' for y_col in self.y_cols]], return_df, on_column='datetime')
+        Plotter(df = merged_anomalies).plot_anomalies(self.trigger_type, support_vars, self.thresholds, tiles_df, self.y_cols, self.y_cols_pred, show=show, units=self.units, latex_y_cols=self.latex_y_cols)
 
     def is_mergeable(self, start: int, merged_starts: list, tolerance=60) -> tuple[int, int]:
         """Check if mergeable using binary search on sorted list."""

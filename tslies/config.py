@@ -15,9 +15,9 @@ import warnings
 from .paths import PathManager
 
 
-RUN_TIMESTAMP: datetime = datetime.now()
-DATE_FOLDER: str = RUN_TIMESTAMP.strftime("%Y-%m-%d")
-TIME_FOLDER: str = RUN_TIMESTAMP.strftime("%H%M")
+SESSION_TIMESTAMP: datetime = datetime.now()
+DATE_FOLDER: str = SESSION_TIMESTAMP.strftime("%Y-%m-%d")
+TIME_FOLDER: str = SESSION_TIMESTAMP.strftime("%H%M")
 
 BASE_DIR: Optional[Path] = None
 LOGS_DIR: Optional[Path] = None
@@ -25,6 +25,7 @@ DATA_DIR: Optional[Path] = None
 RESULTS_DIR: Optional[Path] = None
 BACKGROUND_PREDICTION_DIR: Optional[Path] = None
 ANOMALIES_DIR: Optional[Path] = None
+ANOMALIES_TIME_DIR: Optional[Path] = None
 ANOMALIES_PLOTS_DIR: Optional[Path] = None
 CATALOGS_DIR: Optional[Path] = None
 
@@ -69,6 +70,9 @@ def _cache_paths(base_dir: Optional[Path], *, ensure_exists: bool) -> None:
     )
     module_globals["ANOMALIES_DIR"] = _prepare(
         results_dir.joinpath("anomalies") if results_dir else None
+    )
+    module_globals["ANOMALIES_TIME_DIR"] = _prepare(
+        results_dir.joinpath("anomalies", TIME_FOLDER) if results_dir else None
     )
     module_globals["ANOMALIES_PLOTS_DIR"] = _prepare(
         results_dir.joinpath("anomalies", TIME_FOLDER, "plots") if results_dir else None
@@ -122,13 +126,18 @@ def require_base_dir(*, allow_home_fallback: bool = True, ensure_exists: bool = 
         raise RuntimeError("Unable to resolve the TSLies base directory.")
     return base_dir
 
+def require_existing_dir(path: Path) -> Path:
+    path = Path(path).resolve()
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+    return path
 
 # Initialise the cached paths on module import.
 refresh_paths()
 
 
 __all__ = [
-    "RUN_TIMESTAMP",
+    "SESSION_TIMESTAMP",
     "DATE_FOLDER",
     "TIME_FOLDER",
     "BASE_DIR",

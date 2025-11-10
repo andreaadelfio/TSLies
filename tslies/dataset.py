@@ -10,13 +10,13 @@ from .config import DATA_DIR, get_base_dir
 from .utils import Time, Logger, logger_decorator, File
 
 class DatasetReader():
-    """Class to read the dataset of runs and their properties"""
+    """Class to read datasets and their properties"""
     logger = Logger('DatasetReader').get_logger()
 
     @logger_decorator(logger)
     def __init__(
         self,
-        h_names,
+        cols : list[str],
         data_dir: Optional[str | Path] = None,
         start: int = 0,
         end: int = -1,
@@ -24,10 +24,12 @@ class DatasetReader():
         """
         Initialize the DatasetReader object.
 
-        Parameters:
+        Parameters
+        ----------
+        - cols (list of str): The list of columns names to read from the dataset
         - data_dir (str): The directory path where the dataset data is stored.
-        - start (int): The index of the first run directory to consider.
-        - end (int): The index of the last run directory to consider.
+        - start (int): The index of the first dataset directory to consider.
+        - end (int): The index of the last dataset directory to consider.
         """
         self.start = start
         self.end = end if end != -1 else None
@@ -50,7 +52,7 @@ class DatasetReader():
                 resolved_dir = base_dir / resolved_dir
         resolved_dir = Path(resolved_dir)
         self.data_dir = str(resolved_dir)
-        self.h_names = h_names
+        self.cols = cols
         self.runs_times = {}
         self.runs_dict = {}
 
@@ -59,7 +61,7 @@ class DatasetReader():
         """
         Get the dictionary of run times.
 
-        Returns:
+        Returns
         - runs_times (dict): The dictionary of run times.
         """
         return self.runs_times
@@ -69,18 +71,19 @@ class DatasetReader():
         """
         Get the pandas.Dataframe containing the signals for each run.
 
-        Parameters:
+        Parameters
+        ----------
         - binning (int): The binning factor for the histograms (optional, deprecated).
 
-        Returns:
+        Returns
         - runs_dict (pandas.Dataframe): The dataframe containing the signals for each run.
         """
-        dataset_df = File.read_dfs_from_runs_pk_folder(folder_path=self.data_dir, add_smoothing=True, mode='mean', window=35, start=self.start, stop=self.end, cols_list=self.h_names + ['MET'])
-        dataset_df['datetime'] = np.array(Time.from_met_to_datetime(dataset_df['MET'] - 1))
+        dataset_df = File.read_dfs_from_runs_pk_folder(folder_path=self.data_dir, add_smoothing=True, mode='mean', window=35, start=self.start, stop=self.end, cols_list=self.cols + ['MET'])
+        dataset_df['datetime'] = np.array(Time.from_elapsed_time_to_datetime(dataset_df['MET'] - 1))
         self.runs_times['dataset'] = (dataset_df['datetime'][0], dataset_df['datetime'].iloc[-1])
         return dataset_df
 
 if __name__ == '__main__':
-    cr = DatasetReader(h_names=['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg'], start=0, end=-1)
+    cr = DatasetReader(cols=['top', 'Xpos', 'Xneg', 'Ypos', 'Yneg'], start=0, end=-1)
     tile_signal_df = cr.get_signal_df_from_dataset()
     print(tile_signal_df.head())
