@@ -18,16 +18,42 @@ from .mlobject import MLObject
 
 
 class FFNNPredictor(MLObject):
-    """The class for the Feed Forward Neural Network model."""
+    """Feed-forward neural network predictor built on the base MLObject utilities."""
     logger = Logger('FFNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        """
+        Initialise the feed-forward predictor with training data and metadata.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Data frame containing features, targets, and auxiliary columns.
+        - y_cols (List[str]): Target column names to forecast.
+        - x_cols (List[str]): Feature column names used as network inputs.
+        - y_pred_cols (Optional[List[str]]): Optional names reserved for prediction outputs.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX-formatted labels for plotting.
+        - with_generator (bool): Toggle for generator-based training (not implemented).
+
+        Raises
+        ------
+        - ValueError: Bubbled from ``MLObject`` if mandatory data are missing.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        """Creates the model."""
+        """
+        Assemble and compile the dense network, including optional norm/dropout layers.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If optimiser selection fails due to an unknown ``opt_name``.
+        """
         inputs = Input(shape=(self.X_train.shape[1],))
         for count, units in enumerate(list(self.units_for_layers)):
             hidden = Dense(units, activation='relu')(inputs if count == 0 else hidden)
@@ -55,7 +81,21 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the feed-forward network and persist artefacts and performance metrics.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: Training history with loss/metric traces.
+
+        Raises
+        ------
+        - NotImplementedError: When generator-based training is requested.
+        """
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -94,18 +134,23 @@ class FFNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start:str|int = 0, end:str|int = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Generate deterministic predictions and optionally persist artefacts and plots.
+
         Parameters
         ----------
-            start (str|int): The starting index. Default is 0.
-            end (str|int): The ending index. Defualt is -1.
-            mask_column (str): The column to mask the data.
-            write_bkg (bool): Whether to write the background data. Default is `True`.
-            write_frg (bool): Whether to write the foreground data. Default is `False`.
-            num_batches (int): The batch size for the prediction. Default is 1.
-            save_predictions_plot (bool): Whether to save the predictions plot. Default is `False`.
-            support_variables (list): The support variables to plot.
+        - start (Union[str, int]): Starting index or timestamp for slicing data.
+        - end (Union[str, int]): Ending index or timestamp for slicing data.
+        - mask_column (str): Column used to filter the data frame between ``start`` and ``end``.
+        - write_bkg (bool): Write background predictions to the model directory.
+        - write_frg (bool): Write foreground targets alongside predictions.
+        - num_batches (int): Number of batches used to split inference.
+        - save_predictions_plot (bool): Save prediction plots via ``Plotter`` when ``True``.
+        - support_variables (List[str]): Additional columns merged into the plotting data frame.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Original targets and predicted series.: An empty slice returns empty data frames instead of raising.
         """
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
         if df_data.empty:

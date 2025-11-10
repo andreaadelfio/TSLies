@@ -31,9 +31,35 @@ BACKGROUND_PREDICTION_FOLDER_NAME = str(BACKGROUND_PREDICTION_DIR)
 DIR = str(BASE_DIR_PATH)
 
 class MLObject(ABC):
-    """Abstract base class for Machine Learning models with standardized interface."""
-    def __init__(self, df_data: pd.DataFrame, y_cols: List[str], x_cols: List[str], 
-                 y_pred_cols: Optional[List[str]] = None, latex_y_cols: Optional[List[str]] = None, units: Optional[List[int]] = None, with_generator: bool = False):
+    """Abstract base class defining a common interface for background models."""
+
+    def __init__(
+        self,
+        df_data: pd.DataFrame,
+        y_cols: List[str],
+        x_cols: List[str],
+        y_pred_cols: Optional[List[str]] = None,
+        latex_y_cols: Optional[List[str]] = None,
+        units: Optional[List[int]] = None,
+        with_generator: bool = False,
+    ):
+        """
+        Initialise shared state for supervised background forecasting models.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Data frame containing both features and targets.
+        - y_cols (List[str]): Column names of the target variables.
+        - x_cols (List[str]): Column names of the input features.
+        - y_pred_cols (Optional[List[str]]): Names reserved for model predictions.
+        - latex_y_cols (Optional[List[str]]): LaTeX-friendly labels for plotting.
+        - units (Optional[List[int]]): Optional units associated with each target.
+        - with_generator (bool): Whether training relies on a data generator pipeline.
+
+        Raises
+        ------
+        - ValueError: If ``df_data`` is ``None`` when ``with_generator`` is False.
+        """
         self.model_name = self.__class__.__name__
         self.training_date = pd.Timestamp.time(pd.Timestamp.now()).strftime('%H%M')
         print(f'{self.model_name} - {self.training_date}')
@@ -85,16 +111,18 @@ class MLObject(ABC):
         self.callbacks = None
 
     def get_hyperparams_combinations(self, hyperparams_combinations:dict, use_previous:bool=False) -> list:
-        """Trims the hyperparameters combinations to avoid training duplicate models.
-        
-            Parameters
-            ----------
-                hyperparams_combinations (dict): The hyperparameters combinations.
-                use_previous (bool): Whether to use the previous hyperparameters combinations found in `BACKGROUND_PREDICTION_FOLDER_NAME`.
-                
-            Returns
-            --------
-                list: The hyperparameters combinations."""
+        """
+        Deduplicate hyperparameter grids by removing repeated layer configurations.
+
+        Parameters
+        ----------
+        - hyperparams_combinations (dict): Search-space specification for each parameter.
+        - use_previous (bool): Reuse existing runs to skip already trained combinations.
+
+        Returns
+        -------
+        - list[dict]: Unique hyperparameter dictionaries ready for training.
+        """
         hyperparams_combinations_tmp = []
         uniques = set()
         model_id = 0
@@ -123,18 +151,25 @@ class MLObject(ABC):
         return hyperparams_combinations_tmp[int(first):]
 
     def set_hyperparams(self, params, use_previous=False):
-        """Sets the hyperparameters for the model.
-        
+        """
+        Persist the selected hyperparameters and prepare the model directory.
+
         Parameters
         ----------
-            params (dict): The hyperparameters.
-            
-        Example
+        - params (dict): Hyperparameter dictionary containing architecture and training keys.
+        - use_previous (bool): Skip resetting artefacts when resuming existing runs.
 
-            params = {'model_id': 0, 'units_1': 128, 'units_2': 128, 'units_3': 128,
-                      'norm': True, 'drop': True, 'epochs': 100, 'bs': 32, 'do': 0.5,
-                      'opt_name': 'Adam', 'lr': 0.001, 'loss_type': 'mean_squared_error'}
-            nn.set_hyperparams(params)"""
+        Raises
+        ------
+        - OSError: If the model directory cannot be created.
+
+        Examples
+        --------
+        >>> params = {'model_id': 0, 'units_for_layers': (128, 128), 'norm': True,
+        ...           'drop': True, 'epochs': 100, 'bs': 32, 'do': 0.5,
+        ...           'opt_name': 'Adam', 'lr': 0.001, 'loss_type': 'mse', 'metrics': 'mae'}
+        >>> ml_obj.set_hyperparams(params)
+        """
         self.params = params
         self.params['model_name'] = self.model_name
         self.params['training_date'] = self.training_date
@@ -172,15 +207,22 @@ class MLObject(ABC):
         self.set_metrics()
 
     def set_model(self, model_path: str, compile: bool = True):
-        """Sets the model from the model path.
-        
+        """
+        Load an already trained model from disk and attach it to this instance.
+
         Parameters
         ----------
-            model_path (str): The path to the model.
-            
+        - model_path (str): Filesystem path pointing to the serialized model.
+        - compile (bool): Whether to compile the model when loading via Keras.
+
         Returns
-        --------
-            Model: The model."""
+        -------
+        - tf.keras.Model: Loaded neural network ready for inference.
+
+        Raises
+        ------
+        - FileNotFoundError: If the specified model file cannot be located.
+        """
         if model_path is not None and model_path != '':
             if os.path.exists(model_path):
                 self.model_path = model_path
@@ -191,11 +233,22 @@ class MLObject(ABC):
         return self.nn_r
 
     def set_scalers(self, train_x: pd.DataFrame = None, train_y: pd.DataFrame = None):
-        """Sets the scaler for the model.
-        
+        """
+        Fit feature and target standard scalers, optionally using provided data.
+
         Parameters
         ----------
-            train (pd.DataFrame): The training data."""
+        - train_x (Optional[pd.DataFrame]): Feature matrix used to fit the input scaler.
+        - train_y (Optional[pd.DataFrame]): Target matrix used to fit the output scaler.
+
+        Returns
+        -------
+        - dict: Serialized scaler parameters (means and scales for x/y).
+
+        Raises
+        ------
+    - KeyError: If ``x_cols`` or ``y_cols`` are missing from the training data frame.
+        """
         if train_x is None:
             train_x = self.df_data[self.x_cols]
         if train_y is None:
@@ -215,7 +268,17 @@ class MLObject(ABC):
         return self.scalers_params_dict
 
     def load_scalers(self):
-        """Loads the scalers from the scalers.pkl file."""
+        """
+        Restore fitted standard scalers from the persisted ``scalers.pkl`` file.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - FileNotFoundError: If the scalers pickled file cannot be located.
+        """
         scalers_path = os.path.join(os.path.dirname(self.model_path), 'scalers.pkl')
         if not os.path.exists(scalers_path):
             raise FileNotFoundError(f'Scalers file not found: {scalers_path}')
@@ -230,10 +293,16 @@ class MLObject(ABC):
         self.scaler_y.feature_names_in_ = None
 
     def set_loss(self):
-        """Sets a loss function or a combination of loss functions for the model.
+        """
+        Configure the training loss by combining requested loss components.
+
         Parameters
         ----------
-            loss_type_list (list[str]): A list of loss function names.
+        - None
+
+        Raises
+        ------
+        - KeyError: If a requested loss name is not registered in ``CustomLosses``.
         """
         self.loss_type_list = self.params['loss_type'].split('+')
         loss_functions = self.closses.get_loss_list()
@@ -249,7 +318,13 @@ class MLObject(ABC):
             self.loss = combined_loss
 
     def set_metrics(self):
-        """Sets the metrics for the model."""
+        """
+        Populate the list of Keras metrics according to configured names.
+
+        Parameters
+        ----------
+        - None: Unregistered metric identifiers are silently ignored.
+        """
         self.metrics_list = self.params['metrics'].split('+')
         metrics_functions = self.closses.get_metrics_list()
 
@@ -260,7 +335,13 @@ class MLObject(ABC):
         self.metrics = metrics_list
 
     def set_callbacks(self):
-        """Sets predefined and custom callbacks. """
+        """
+        Configure the callbacks collection executed during training.
+
+        Parameters
+        ----------
+        - None
+        """
         # es = EarlyStopping(monitor='val_loss', mode='min', min_delta=0.002,
         #                    patience=10, start_from_epoch=190)
         mc = tf_keras.callbacks.ModelCheckpoint(self.model_path,
@@ -270,7 +351,18 @@ class MLObject(ABC):
         self.callbacks = [mc]
 
     def scheduler(self, epoch, lr_actual):
-        """The learning rate scheduler."""
+        """
+        Piecewise learning-rate schedule tuned for warm-up and decay phases.
+
+        Parameters
+        ----------
+        - epoch (int): Current training epoch (zero-indexed).
+        - lr_actual (float): Scalar learning rate proposed by the optimizer.
+
+        Returns
+        -------
+        - float: Learning rate value to use for the upcoming epoch.
+        """
         if epoch < 0.06 * self.epochs:
             return self.lr*1.25
         if 0.06 * self.epochs <= epoch < 0.20 * self.epochs:
@@ -280,14 +372,48 @@ class MLObject(ABC):
         return lr_actual
         
     def update_summary(self):
-        """Updates the summary file with the model parameters"""
+        """
+        Append the latest training metrics to ``models_params.csv`` summary.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - OSError: If the summary file cannot be opened for appending.
+        """
         with open(self.model_params_path, 'a') as f:
             list_tmp = list(self.params.values()) + self.mae_tr_list
             f.write('\t'.join([str(value) for value in list_tmp] + ['\n']))
 
     class custom_callback(tf_keras.callbacks.Callback):
-        """Custom callback class to end the model training and plot the predictions."""
+        """
+        Custom Keras callback that tracks history, plots diagnostics, and optionally stops training.
+
+        Parameters
+        ----------
+        - predictor (MLObject): Background predictor owning the training loop.
+        - interval (int): Epoch cadence for generating prediction plots.
+        """
+
         def __init__(self, predictor, interval=5):
+            """
+            Initialise the callback with a reference model and plotting cadence.
+
+            Parameters
+            ----------
+            - predictor (MLObject): Background predictor owning the training loop.
+            - interval (int): Number of epochs between prediction visualisations.
+
+            Returns
+            -------
+            - None
+
+            Raises
+            ------
+            - None
+            """
             super().__init__()
             self.predictor = predictor
             self.interval = interval
@@ -297,18 +423,52 @@ class MLObject(ABC):
                 self.history['history'][f'val_{metric}'] = []
 
         def _implements_train_batch_hooks(self):
-            """Required method for TensorFlow compatibility."""
+            """
+            Provide TensorFlow with the callback hook availability declaration.
+
+            Returns
+            -------
+            - bool: ``True`` if the callback implements train batch hooks.
+            """
             return False
 
         def _implements_test_batch_hooks(self):
-            """Required method for TensorFlow compatibility."""
+            """
+            Provide TensorFlow with the callback hook availability declaration.
+
+            Returns
+            -------
+            - bool: ``True`` if the callback implements test batch hooks.
+            """
             return False
 
         def _implements_predict_batch_hooks(self):
-            """Required method for TensorFlow compatibility."""
+            """
+            Provide TensorFlow with the callback hook availability declaration.
+
+            Returns
+            -------
+            - bool: ``True`` if the callback implements predict batch hooks.
+            """
             return False
 
         def on_epoch_end(self, epoch, logs={}):
+            """
+            Persist history, produce diagnostic plots, and execute periodic inference.
+
+            Parameters
+            ----------
+            - epoch (int): Index of the completed epoch.
+            - logs (dict): Metrics dictionary emitted by Keras for the epoch.
+
+            Returns
+            -------
+            - None
+
+            Raises
+            ------
+            - KeyError: If mandatory keys are missing when accessing ``logs``.
+            """
             for key in logs.keys():
                 if not key in self.history['history']:
                     self.history['history'][key] = []
@@ -329,7 +489,20 @@ class MLObject(ABC):
                 self.model.stop_training = True
 
     def save_predictions_plots(self, tiles_df, start, end, params):
-        """Saves the prediction plots."""
+        """
+        Save tiled prediction plots for a given temporal window to disk.
+
+        Parameters
+        ----------
+        - tiles_df (pd.DataFrame): Data frame containing target and prediction columns.
+        - start (Union[str, int]): Start timestamp or index used in the plot title.
+        - end (Union[str, int]): End timestamp or index used in the plot title.
+        - params (dict): Model parameters dictionary containing the ``model_path`` key.
+
+        Raises
+        ------
+        - KeyError: If ``params`` lacks ``model_path``.
+        """
         title = os.path.join(os.path.dirname(params['model_path']), f'tiles_{start}_{end}.png')
         Plotter(df=tiles_df, label=title).df_plot_tiles(self.y_cols, x_col='datetime', latex_y_cols=self.latex_y_cols, init_marker=',',
                                                         show=False, smoothing_key='pred', save=True, show_std=True, units=self.units, figsize=(5, 3))
@@ -337,12 +510,28 @@ class MLObject(ABC):
     # Abstract methods that must be implemented by subclasses
     @abstractmethod
     def create_model(self) -> None:
-        """Create the model architecture. Must be implemented by subclasses."""
+        """
+        Build and assign the underlying learning architecture.
+
+        Raises
+        ------
+        - NotImplementedError: Must be implemented by subclasses.
+        """
         pass
 
     @abstractmethod
     def train(self) -> Any:
-        """Train the model. Must be implemented by subclasses."""
+        """
+        Execute the end-to-end training routine.
+
+        Returns
+        -------
+        - Any: Optional training artefacts supplied by subclasses.
+
+        Raises
+        ------
+        - NotImplementedError: Must be implemented by subclasses.
+        """
         pass
 
     @abstractmethod
@@ -358,30 +547,25 @@ class MLObject(ABC):
         support_variables: Optional[List[str]] = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Make predictions with standardized interface.
-        
+        Make predictions using a consistent interface across background models.
+
         Parameters
-        -----------
-        start : Union[str, int]
-            Start index or datetime string
-        end : Union[str, int] 
-            End index or datetime string
-        mask_column : str
-            Column to use for masking data
-        write_bkg : bool
-            Whether to write background predictions to file
-        write_frg : bool
-            Whether to write foreground data to file
-        num_batches : int
-            Number of batches for prediction
-        save_predictions_plot : bool
-            Whether to save prediction plots
-        support_variables : Optional[List[str]]
-            Additional variables to include in plots
-            
+        ----------
+        - start (Union[str, int]): Start index or datetime string delimiting the window.
+        - end (Union[str, int]): End index or datetime string delimiting the window.
+        - mask_column (str): Column name used to filter the data frame for inference.
+        - write_bkg (bool): Persist background predictions to disk when ``True``.
+        - write_frg (bool): Persist foreground data to disk when ``True``.
+        - num_batches (int): Number of batches to use during inference.
+        - save_predictions_plot (bool): Save diagnostic plots when ``True``.
+        - support_variables (Optional[List[str]]): Additional columns to show in plots.
+
         Returns
-        --------
-        Tuple[pd.DataFrame, pd.DataFrame]
-            Original data and predictions
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Original data and model predictions.
+
+        Raises
+        ------
+        - NotImplementedError: Must be implemented by subclasses.
         """
         pass

@@ -42,24 +42,26 @@ PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
 
 
 class Plotter:
-    """
-    This class provides methods for plotting data points and curves.
-    """
+    """Helper class collecting common plotting routines used across TSLies."""
     logger = Logger('Plotter').get_logger()
     
     @logger_decorator(logger)
     def __init__(self, x = None, y = None, df: pd.DataFrame = None, xy: dict = None, label = '', latex = False):
         """
-        Initialize the Plotter object.
+        Initialise plotting helpers with optional preloaded data structures.
 
         Parameters
         ----------
-            x (list): The x-coordinates of the data points (default: None).
-            y (list): The y-coordinates of the data points (default: None).
-            df (pd.DataFrame): The y-coordinates of the data points (default: None).
-            xy (dict): A dictionary of x, y, and smooth y values for multiple curves (default: None).
-            label (str): The label for the plot (default: '').
-            latex (bool): Whether to use LaTeX for rendering text in plots (default: False).
+        - x (Optional[Iterable[float]]): Abscissa values for single-series plots.
+        - y (Optional[Iterable[float]]): Ordinate values for single-series plots.
+        - df (Optional[pd.DataFrame]): Data frame backing tile-style visualisations.
+        - xy (Optional[dict]): Mapping containing multiple x/y pairs and smoothed variants.
+        - label (str): Figure identifier used by Matplotlib windows and filenames.
+        - latex (bool): Enable LaTeX rendering for plot text when ``True``.
+
+        Raises
+        ------
+        - RuntimeError: If LaTeX rendering is requested but Matplotlib cannot configure it.
         """
         self.x = x
         self.y = y
@@ -77,12 +79,22 @@ class Plotter:
     @logger_decorator(logger)
     def df_plot_corr_tiles(self, x_col, excluded_cols = None, marker = '-', ms = 1, lw = 0.1, smoothing_key = 'smooth', show = True):
         """
-        Plot multiple curves as tiles.
+        Plot correlation tiles comparing each series with a reference axis.
 
         Parameters
         ----------
-            lw (float): Line width of the curves (default: 0.1).
-            with_smooth (bool): Whether to plot smoothed curves as well (default: False).
+        - x_col (str): Column name used for the abscissa when plotting non-reference series.
+        - excluded_cols (Optional[Iterable[str]]): Columns to skip from the panel grid.
+        - marker (str): Matplotlib marker/line style for scatter lines.
+        - ms (float): Marker size when ``marker`` includes point markers.
+        - lw (float): Line width for the plotted series.
+        - smoothing_key (str): Suffix identifying smoothed series to overlay when present.
+        - show (bool): Display the generated figure when ``True``.
+
+        Raises
+        ------
+        - KeyError: If ``x_col`` is not present in ``self.df``.
+        - ValueError: When no columns remain after filtering.
         """
         if not excluded_cols:
             excluded_cols = []
@@ -125,12 +137,28 @@ class Plotter:
     @logger_decorator(logger)
     def df_plot_tiles(self, y_cols, x_col, latex_y_cols=None, top_x_col=None, excluded_cols=None, init_marker=',', lw=0.1, smoothing_key='smooth', show=True, save=False, units=None, show_std=True, figsize=(12, 6)):
         """
-        Plot multiple curves as tiles.
+        Plot tile-based subplots for the requested signal columns.
 
         Parameters
         ----------
-            lw (float): Line width of the curves (default: 0.1).
-            with_smooth (bool): Whether to plot smoothed curves as well (default: False).
+        - y_cols (Iterable[str]): Columns to highlight as primary signals.
+        - x_col (str): Column used as the shared x-axis.
+        - latex_y_cols (Optional[dict[str, str]]): Mapping from column name to LaTeX label.
+        - top_x_col (Optional[str]): Optional column to expose on the secondary top axis.
+        - excluded_cols (Optional[Iterable[str]]): Columns to skip entirely.
+        - init_marker (str): Line/marker style used for non-highlighted columns.
+        - lw (float): Line width for the base plot style.
+        - smoothing_key (str): Suffix indicating smoothed series counterpart.
+        - show (bool): Display the generated figure when ``True``.
+        - save (bool): Persist the figure to disk when ``True``.
+        - units (Optional[dict[str, str]]): Per-column units appended to labels.
+        - show_std (bool): Draw standard deviation shading when available.
+        - figsize (tuple[int, int]): Figure size passed to Matplotlib.
+
+        Raises
+        ------
+        - KeyError: If ``x_col`` or any requested column is absent from ``self.df``.
+        - ValueError: When no columns remain after filtering.
         """
         if units is None:
             units = {}

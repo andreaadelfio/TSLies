@@ -21,14 +21,43 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class PBNNPredictor(MLObject):
-    """The class for the Probabilistic Bayesian Neural Network model."""
+    """Probabilistic Bayesian neural network predictor based on dense variational layers."""
     logger = Logger('PBNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        """
+        Initialise the probabilistic BNN predictor with training data and metadata.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Data frame containing features and targets.
+        - y_cols (List[str]): Target column names used during training and inference.
+        - x_cols (List[str]): Feature column names fed into the network.
+        - y_pred_cols (Optional[List[str]]): Optional aliases for prediction outputs.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX labels for the targets.
+        - with_generator (bool): Toggle for generator-based training (not implemented).
+
+        Raises
+        ------
+        - ValueError: Propagated when base initialisation fails due to missing data.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
     
     def prior_trainable(self, kernel_size, bias_size=0, dtype=None):
+        """
+        Build a trainable prior distribution for variational dense layers.
+
+        Parameters
+        ----------
+        - kernel_size (int): Number of kernel weights.
+        - bias_size (int): Number of bias parameters.
+        - dtype (Optional[tf.DType]): Data type for the created variables.
+
+        Returns
+        -------
+        - tf.keras.Sequential: Distribution-producing layer representing the prior.
+        """
         n = kernel_size + bias_size
         return tf_keras.Sequential([
             tfp.layers.VariableLayer(n, dtype=dtype),
@@ -38,6 +67,18 @@ class PBNNPredictor(MLObject):
         ])
 
     def random_gaussian_initializer(self, shape, dtype):
+        """
+        Initialise concatenated location and scale parameters for variational layers.
+
+        Parameters
+        ----------
+        - shape (int): Total number of parameters requested by the layer.
+        - dtype (tf.DType): Data type for the returned tensor.
+
+        Returns
+        -------
+        - tf.Tensor: Concatenated vector of initialised location and scale values.
+        """
         n = int(shape / 2)
         loc_norm = tf.random_normal_initializer(mean=0., stddev=0.1)
         loc = tf.Variable(
@@ -51,6 +92,19 @@ class PBNNPredictor(MLObject):
     
     # The posterior is modeled as n_weights independent Normal distribution with learnable parameters
     def posterior_mean_field(self, kernel_size, bias_size=0, dtype=None):
+        """
+        Construct a mean-field posterior distribution for variational dense layers.
+
+        Parameters
+        ----------
+        - kernel_size (int): Number of kernel weights.
+        - bias_size (int): Number of bias parameters.
+        - dtype (Optional[tf.DType]): Data type for the layer variables.
+
+        Returns
+        -------
+        - tf.keras.Sequential: Sequential layer generating the posterior distribution.
+        """
         n = kernel_size + bias_size
         c = np.log(np.expm1(1.))
         return tf_keras.Sequential([
@@ -62,12 +116,33 @@ class PBNNPredictor(MLObject):
         ])
     
     def normal_sp(self, params):
+        """
+        Convert variational parameters into a normal distribution for predictions.
+
+        Parameters
+        ----------
+        - params (tf.Tensor): Tensor containing mean and log-scale parameters per output.
+
+        Returns
+        -------
+        - tfd.Normal: Distribution over network outputs.
+        """
         return tfd.Normal(loc=params[:,:len(self.y_cols)],\
                       scale=1e-5 + 0.00001*tf_keras.backend.exp(params[:,len(self.y_cols):]))# both parameters are learnable
 
     @logger_decorator(logger)
     def create_model(self):
-        """Builds the Bayesian Neural Network model."""
+        """
+        Assemble the variational dense architecture and compile it for training.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If mandatory configuration parameters are missing.
+        """
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols), )),
@@ -89,7 +164,21 @@ class PBNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the probabilistic BNN and record the history of losses and metrics.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: Training history returned by ``model.fit``.
+
+        Raises
+        ------
+        - NotImplementedError: When generator-based training is requested.
+        """
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -100,12 +189,25 @@ class PBNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, runs=250, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=True, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Estimate predictive means and standard deviations via repeated stochastic forward passes.
+
         Parameters
         ----------
-            start (int): The starting index. Default is 0.
-            end (int): The ending index. Defualt is -1."""
+        - start (Union[int, str]): Start index or timestamp for slicing data.
+        - end (Union[int, str]): End index or timestamp for slicing data.
+        - runs (int): Number of stochastic forward passes to approximate the posterior.
+        - mask_column (str): Column used to filter ``df_data`` between ``start`` and ``end``.
+        - write_bkg (bool): Persist background predictions to disk when ``True``.
+        - write_frg (bool): Persist foreground targets alongside predictions.
+        - num_batches (int): Number of batches used when iterating over the inference set.
+        - save_predictions_plot (bool): Save prediction plots via ``Plotter`` when ``True``.
+        - support_variables (List[str]): Extra columns merged into the plotting data frame.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Ground-truth slice and predictions with uncertainty columns.: Empty slices return empty data frames.
+        """
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()

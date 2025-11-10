@@ -11,15 +11,33 @@ from .lime import lime_tabular
 from .plotter import Plotter
 
 def get_feature_importance(model_path, inputs_outputs_df, y_cols, x_cols, num_sample = 100, model = None, show=True, save=True):
-    """Get the feature importance using LIME and SHAP and plots it with matplotlib barh.
-    
+    """
+    Compute feature importances with LIME and visualise them as stacked bars.
+
     Parameters
     ----------
-        model_path (str): The path to the model.
-        inputs_outputs_df (pd.DataFrame): The input and output data.
-        y_cols (list): The columns of the output data.
-        x_cols (list): The columns of the input data.
-        show (bool): Whether to show the plot."""
+    - model_path (str): Filesystem path to the trained model to load when ``model`` is ``None``.
+    - inputs_outputs_df (pd.DataFrame): Data frame containing both features and targets.
+    - y_cols (list[str]): Column names identifying the target variables.
+    - x_cols (list[str]): Column names identifying the feature variables.
+    - num_sample (int): Number of samples to draw for the LIME background set.
+    - model (Optional[object]): Preloaded predictor exposing ``predict`` and ``scaler`` attributes.
+    - show (bool): Display the Matplotlib figure when ``True``.
+    - save (bool): Persist the generated figure using ``Plotter.save`` when ``True``.
+
+    Returns
+    -------
+    - None
+
+    Raises
+    ------
+    - FileNotFoundError: If ``model_path`` does not point to a readable model file.
+    - ValueError: If ``num_sample`` exceeds the available rows.
+
+    Examples
+    --------
+    >>> get_feature_importance('models/bnn.keras', df, ['target'], feature_cols)
+    """
     X_test = inputs_outputs_df[x_cols]
     if model is None:
         model = load_model(model_path)

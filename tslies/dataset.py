@@ -1,5 +1,5 @@
 """
-This module contains the class to manage the acd dataset.
+Dataset ingestion helpers for TSLies pipelines.
 """
 import numpy as np
 import pandas as pd
@@ -10,7 +10,7 @@ from .config import DATA_DIR, get_base_dir
 from .utils import Time, Logger, logger_decorator, File
 
 class DatasetReader():
-    """Class to read datasets and their properties"""
+    """Reader utility that assembles run-level data frames from pickled tiles."""
     logger = Logger('DatasetReader').get_logger()
 
     @logger_decorator(logger)
@@ -22,14 +22,18 @@ class DatasetReader():
         end: int = -1,
     ):
         """
-        Initialize the DatasetReader object.
+        Configure a reader capable of stitching together multiple run segments.
 
         Parameters
         ----------
-        - cols (list of str): The list of columns names to read from the dataset
-        - data_dir (str): The directory path where the dataset data is stored.
-        - start (int): The index of the first dataset directory to consider.
-        - end (int): The index of the last dataset directory to consider.
+        - cols (list[str]): Column names to extract from the stored tiles.
+        - data_dir (Optional[str | Path]): Root directory containing run folders. Defaults to ``tslies.config.DATA_DIR``.
+        - start (int): Inclusive index of the first run folder to load.
+        - end (int): Inclusive index of the last run folder to load, or ``-1`` for all remaining runs.
+
+        Raises
+        ------
+        - RuntimeError: If the base directory cannot be resolved for relative paths.
         """
         self.start = start
         self.end = end if end != -1 else None
@@ -59,24 +63,36 @@ class DatasetReader():
     @logger_decorator(logger)
     def get_runs_times(self):
         """
-        Get the dictionary of run times.
+        Retrieve cached temporal coverage for the loaded runs.
+
+        Parameters
+        ----------
+        - None
 
         Returns
-        - runs_times (dict): The dictionary of run times.
+        -------
+        - dict: Mapping run identifiers to ``(start_datetime, end_datetime)`` tuples.
+
         """
         return self.runs_times
 
     @logger_decorator(logger)
     def get_signal_df_from_dataset(self) -> pd.DataFrame:
         """
-        Get the pandas.Dataframe containing the signals for each run.
+        Load tile signals, concatenate them, and enrich with datetime information.
 
         Parameters
         ----------
-        - binning (int): The binning factor for the histograms (optional, deprecated).
+        - None
 
         Returns
-        - runs_dict (pandas.Dataframe): The dataframe containing the signals for each run.
+        -------
+        - pandas.DataFrame: Combined dataset containing the requested columns and ``datetime``.
+
+        Raises
+        ------
+        - FileNotFoundError: Propagated if one of the run pickle files is unavailable.
+        - ValueError: Propagated if read data cannot be concatenated.
         """
         dataset_df = File.read_dfs_from_runs_pk_folder(folder_path=self.data_dir, add_smoothing=True, mode='mean', window=35, start=self.start, stop=self.end, cols_list=self.cols + ['MET'])
         dataset_df['datetime'] = np.array(Time.from_elapsed_time_to_datetime(dataset_df['MET'] - 1))

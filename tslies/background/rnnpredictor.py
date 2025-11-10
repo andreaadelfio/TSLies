@@ -25,14 +25,42 @@ from ..utils import Logger, logger_decorator, File, Data
 from .mlobject import MLObject
     
 class RNNPredictor(MLObject):
+    """Recurrent neural network predictor leveraging LSTM encoders for background modelling."""
     logger = Logger('RNNPredictor').get_logger()
 
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, with_generator=False):
+        """
+        Initialise the RNN predictor with dataset partitions and configuration metadata.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Data frame containing sequential features and targets.
+        - y_cols (List[str]): Target column names to forecast.
+        - x_cols (List[str]): Feature column names forming the time series inputs.
+        - y_pred_cols (Optional[List[str]]): Optional aliases for prediction outputs.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX labels for plots.
+        - with_generator (bool): Flag enabling generator-based training (not implemented).
+
+        Raises
+        ------
+        - ValueError: Propagated when base initialization detects missing data.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols, with_generator)
 
     @logger_decorator(logger)
     def reshape_data(self, x, y):
-        """Reshapes the data for the RNN model."""
+        """
+        Slice rolling windows over the time series to form RNN input tensors.
+
+        Parameters
+        ----------
+        - x (np.ndarray | pd.DataFrame): Feature matrix to reshape into sequences.
+        - y (np.ndarray | pd.DataFrame): Target matrix aligned with the features.
+
+        Returns
+        -------
+        - Tuple[np.ndarray, np.ndarray]: Tuple containing reshaped input sequences and aligned targets.
+        """
         y = y[self.params['timesteps']:]
         x = np.array([x[i:i + self.params['timesteps']] for i in np.arange(len(x) - self.params['timesteps'])])
         x = np.reshape(x, (x.shape[0], x.shape[1], x.shape[2]))
@@ -40,7 +68,17 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def create_model(self):
-        """Creates the model."""
+        """
+        Assemble the LSTM-based architecture and compile it for training.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If an unsupported optimiser name is provided.
+        """
         
         inputs = Input(shape=(None, len(self.x_cols)))
         hidden = LSTM(90)(inputs)
@@ -69,7 +107,21 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the RNN model, capture metrics, and persist artefacts to disk.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: Training history object containing loss traces.
+
+        Raises
+        ------
+        - NotImplementedError: When generator-based training is requested.
+        """
         self.X_train, self.y_train = self.reshape_data(self.X_train, self.y_train)
         self.X_test, self.y_test = self.reshape_data(self.X_test, self.y_test)
         
@@ -118,14 +170,23 @@ class RNNPredictor(MLObject):
 
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Produce sequential predictions with optional persistence of artefacts and plots.
+
         Parameters
         ----------
-            start (int): The starting index. (Default is 0).
-            end (int): The ending index. (Defualt is -1).
-            write (bool): If the predicted and original dataset will be written in a file. (Defualt is True)
-            batched (bool): If the dataset will be modeled in batch. (Defualt is False)"""
+        - start (Union[int, str]): Start index or timestamp for slicing data.
+        - end (Union[int, str]): End index or timestamp for slicing data.
+        - write_bkg (bool): Persist background predictions to disk when ``True``.
+        - write_frg (bool): Persist foreground targets alongside predictions.
+        - num_batches (int): Number of batches used during inference.
+        - save_predictions_plot (bool): Save prediction plots via ``Plotter`` when ``True``.
+        - support_variables (List[str]): Additional columns merged into plotting data.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Ground-truth slice and predictions.: Empty slices return empty data frames.
+        """
         df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, reset_index=False)
         if df_data.empty:
             return pd.DataFrame(), pd.DataFrame()

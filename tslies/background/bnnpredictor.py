@@ -17,16 +17,43 @@ from .mlobject import MLObject
 
 
 class BNNPredictor(MLObject):
-    """The class for the Bayesian Neural Network model."""
+    """Bayesian neural network predictor leveraging dense layers with uncertainty head."""
     logger = Logger('BNNPredictor').get_logger()
 
     @logger_decorator(logger)
     def __init__(self, df_data, y_cols, x_cols, y_pred_cols=None, latex_y_cols=None, units=None, with_generator=False):
+        """
+        Initialise the Bayesian neural network predictor with data and configuration.
+
+        Parameters
+        ----------
+        - df_data (pd.DataFrame): Source data frame with feature and target columns.
+        - y_cols (List[str]): Target column names to model.
+        - x_cols (List[str]): Feature column names feeding the network.
+        - y_pred_cols (Optional[List[str]]): Optional prediction column aliases.
+        - latex_y_cols (Optional[List[str]]): Optional LaTeX-friendly labels for plots.
+        - units (Optional[List[int]]): Units metadata associated with targets.
+        - with_generator (bool): Flag enabling generator-based training (not implemented).
+
+        Raises
+        ------
+        - ValueError: Propagated from the base class when mandatory data are missing.
+        """
         super().__init__(df_data, y_cols, x_cols, y_pred_cols, latex_y_cols=latex_y_cols, units=units, with_generator=with_generator)
 
     @logger_decorator(logger)
     def create_model(self):
-        """Builds the Bayesian Neural Network model."""
+        """
+        Build and compile the deterministic network with probabilistic output head.
+
+        Parameters
+        ----------
+        - None
+
+        Raises
+        ------
+        - ValueError: If layer configuration is missing from ``units_for_layers``.
+        """
 
         self.nn_r = tf_keras.Sequential([
             tf_keras.Input(shape=(len(self.x_cols), )),
@@ -43,7 +70,21 @@ class BNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def train(self):
-        """Trains the model."""
+        """
+        Train the Bayesian neural network using the prepared train/test split.
+
+        Parameters
+        ----------
+        - None
+
+        Returns
+        -------
+        - tf.keras.callbacks.History: History containing loss and metric traces.
+
+        Raises
+        ------
+        - NotImplementedError: When generator-based training is requested.
+        """
         if self.with_generator:
             raise NotImplementedError('With generator not implemented yet for ABNNPredictor')
         else:
@@ -54,13 +95,24 @@ class BNNPredictor(MLObject):
     
     @logger_decorator(logger)
     def predict(self, start = 0, end = -1, mask_column='index', write_bkg=True, write_frg=False, num_batches=1, save_predictions_plot=False, support_variables=[]) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Predicts the output data.
-        
+        """
+        Produce background predictions along with estimated standard deviations.
+
         Parameters
         ----------
-            start (int): The starting index. Default is 0.
-            end (int): The ending index. Defualt is -1.
-            """
+        - start (Union[int, str]): Start index or timestamp for selecting the slice.
+        - end (Union[int, str]): End index or timestamp for selecting the slice.
+        - mask_column (str): Data frame column used for slicing the input data.
+        - write_bkg (bool): Persist background predictions to the model folder.
+        - write_frg (bool): Persist foreground values to disk if ``True``.
+        - num_batches (int): Number of batches to split inference over.
+        - save_predictions_plot (bool): Enable saving plots of predictions vs targets.
+        - support_variables (List[str]): Additional variables to include in plot data.
+
+        Returns
+        -------
+        - Tuple[pd.DataFrame, pd.DataFrame]: Original targets and predictions with uncertainty columns.: Empty slices result in empty data frames without raising.
+        """
         if start != 0 or end != -1:
             df_data = Data.get_masked_dataframe(data=self.df_data, start=start, stop=end, column=mask_column, reset_index=False)
             if df_data.empty:
