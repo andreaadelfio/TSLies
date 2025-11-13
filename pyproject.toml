@@ -10,16 +10,16 @@ authors = [
     {name = "Andrea Adelfio"}
 ]
 dependencies = [
-    "keras>=3.7.0,<3.8",
-    "matplotlib>=3.8.4,<3.9",
-    "numpy>=1.26.4,<1.27",
-    "pandas>=2.2.2,<2.3",
-    "scikit-learn>=1.4.2,<1.5",
-    "scipy>=1.13.1,<1.14",
-    "seaborn>=0.13.2,<0.14",
-    "tensorflow>=2.18.0,<2.19",
-    "tensorflow-probability>=0.25.0,<0.26",
-    "tf_keras>=2.18.0,<2.19",
+    "keras>=3.7.0,<4",
+    "matplotlib>=3.8.4,<4",
+    "numpy>=1.26.4,<2",
+    "pandas>=2.2.2,<3",
+    "scikit-learn>=1.4.2,<2",
+    "scipy>=1.13.1,<2",
+    "seaborn>=0.13.2,<1",
+    "tensorflow>=2.20.0,<3.0",
+    "tensorflow-probability>=0.25.0,<1",
+    "tf_keras>=2.18.0,<3",
     "tqdm>=4.66.4,<5"
 ]
 readme = "README.md"
