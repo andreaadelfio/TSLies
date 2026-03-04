@@ -99,6 +99,7 @@ if __name__ == '__main__':
 
     x_cols = [col for col in x_cols if col not in x_cols_excluded]
     inputs_outputs_df = File().read_dfs_from_weekly_pk_folder(start=0, stop=1000)
+    print(inputs_outputs_df.head())
     # nn = run_bnn(inputs_outputs_df, y_cols, y_pred_cols, x_cols)
     # model_path = '/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/example/results/2025-10-27/background_prediction/1456/BNNPredictor/0/model.keras'
     # run_trigger_bnn(inputs_outputs_df, y_cols, y_pred_cols, x_cols, model_path, catalog)

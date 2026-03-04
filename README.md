@@ -334,7 +334,11 @@ If you use TSLies in your research, please cite:
 
 ### To-do
 - review docs
-- check dependencies
+- check dependencies (controllare se tf_keras serve ancora)
 - check __init__ files
+- cercare rimasugli di applicazioni di ACD
+- cancellare dataset.py
+- pensare agli unit tests
+- with sns.plotting_context("talk"):
 
 [Go to Top](#table-of-contents)
