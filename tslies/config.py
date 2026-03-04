@@ -18,8 +18,6 @@ from .paths import PathManager
 SESSION_TIMESTAMP: datetime = datetime.now()
 DATE_FOLDER: str = SESSION_TIMESTAMP.strftime("%Y-%m-%d")
 TIME_FOLDER: str = SESSION_TIMESTAMP.strftime("%H%M")
-print(f"Date folder: {DATE_FOLDER}")
-print(f"Time folder: {TIME_FOLDER}")
 
 BASE_DIR: Optional[Path] = None
 LOGS_DIR: Optional[Path] = None
