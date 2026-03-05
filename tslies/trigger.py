@@ -233,7 +233,7 @@ class Trigger:
         -------
         - dict[str, np.ndarray]: Boolean trigger flags and time offsets per face.
         """
-        result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0}
+        result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0, f'{face}_significance': signal}
         return result
 
     def trigger_gauss_focus(self, signal, face, reset_indices, threshold):

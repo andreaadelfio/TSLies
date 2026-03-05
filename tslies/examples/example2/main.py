@@ -52,7 +52,7 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path, 
         tiles_df[f'{face}_norm'] = (tiles_df[face] - tiles_df[face_pred]) / tiles_df[f'{face}_std']
 
     reset = tiles_df['MET'].diff() > 60
-    trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='focus', units=units, latex_y_cols=latex_y_cols)
+    trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='z_score', units=units, latex_y_cols=latex_y_cols)
     trigger.run(reset_condition=reset)
     merged_anomalies, return_df = trigger.identify_and_merge_triggers(merge_interval=60)
     detections_df = trigger.get_detections_df(['MET'])
@@ -61,7 +61,7 @@ def run_trigger_bnn(inputs_outputs_df, y_cols, y_cols_pred, x_cols, model_path, 
     detections_df, filtered_anomalies = trigger.filter_from_catalog(catalog, merged_anomalies, detections_df)
     print(detections_df)
     trigger.save_detections_csv(detections_df=detections_df, suffix='_in_catalog')
-    trigger.plot_anomalies(filtered_anomalies + merged_anomalies, return_df, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'])
+    trigger.plot_anomalies(merged_anomalies, return_df, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'])
 
 
 def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
@@ -83,8 +83,10 @@ def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
     print(stats_df.set_index('face').T.to_string(header=True))
     reset = tiles_df['MET'].diff() > 60
     trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='focus', units=units, latex_y_cols=latex_y_cols)
+    # trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='z_score', units=units, latex_y_cols=latex_y_cols)
     trigger.run(reset_condition=reset)
     merged_anomalies, return_df = trigger.identify_and_merge_triggers(merge_interval=60)
+    print(return_df.head())
     detections_df = trigger.get_detections_df(['MET'])
     trigger.save_detections_csv(detections_df=detections_df)
 
@@ -92,13 +94,13 @@ def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
     trigger.save_detections_csv(detections_df=detections_df, suffix='_in_catalog')
     for x, v in filtered_anomalies.items():
         merged_anomalies[x] = v
-    trigger.plot_anomalies(filtered_anomalies, return_df, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'])
+    trigger.plot_anomalies(merged_anomalies, return_df, support_vars=['GOES_XRSA_HARD_EARTH_OCCULTED'])
 
 if __name__ == '__main__':
     catalog = CatalogsReader().catalog_df
 
     x_cols = [col for col in x_cols if col not in x_cols_excluded]
-    inputs_outputs_df = File().read_dfs_from_weekly_pk_folder(start=0, stop=1000)
+    inputs_outputs_df = File().read_dfs_from_weekly_pk_folder(start=0, stop=819)
     print(inputs_outputs_df.head())
     # nn = run_bnn(inputs_outputs_df, y_cols, y_pred_cols, x_cols)
     # model_path = '/home/andrea-adelfio/OneDrive/Workspace INFN/TSLies/tslies/example/results/2025-10-27/background_prediction/1456/BNNPredictor/0/model.keras'
