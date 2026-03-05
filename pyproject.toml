@@ -20,7 +20,8 @@ dependencies = [
     "tensorflow>=2.18.0,<3.0",
     "tensorflow-probability>=0.25.0,<1",
     "tf_keras>=2.18.0,<3",
-    "tqdm>=4.66.4,<5"
+    "tqdm>=4.66.4,<5",
+    "astropy>=7.0.0,<8"
 ]
 readme = "README.md"
 license = {text = "MIT"}
