@@ -1,483 +1,577 @@
 """
-This module contains the implementation of the FOCuS algorithm for change point detection.
+Anomaly triggers on the residuals of a background model.
+
+:class:`Trigger` turns observed signals and their predicted background into a significance per
+sample and channel, applies per-channel thresholds and a coincidence condition across groups of
+channels, and groups the triggered samples into events.
+
+Detectors (``trigger_type``)
+----------------------------
+- ``'z_score'``: evidence of each single sample, from ``z = (y - y_pred) / y_std``.
+- ``'focus'`` (alias ``'gaussian_focus'``): Gaussian FOCuS on ``z``, which must be N(0, 1) when
+  there is no anomaly.
+- ``'poisson_focus'``: Poisson-FOCuS on counts ``y`` with expected counts ``y_pred``. It needs no
+  ``y_std``, but ``y`` must be counts, not rates.
+
+The significance of the FOCuS detectors is ``sqrt(2 * LLR)``. Because it is maximised over the
+start of the change it is not N(0, 1) without anomalies: thresholds must be calibrated for a
+target false-alarm rate (see :mod:`tslies.stats.focus`).
+
+An **alarm** is a sample where the significance of a channel goes over its threshold. By default
+(``after_alarm='restart'``) the FOCuS detectors restart from scratch after every alarm, as FOCuS
+is meant to be used on a stream: each alarm reports one change, from its estimated start to the
+alarm, which is then forgotten, and a long anomaly raises a sequence of alarms, one after the
+other, while it lasts. Without restarts the evidence of a strong anomaly would keep the
+significance over threshold for hours after its end and hide the anomalies that follow. With
+``after_alarm='background'`` they keep their memory instead, with the sample that raised the
+alarm stored as background: a long anomaly raises an alarm at almost every sample, but alarms can
+keep coming after its end and anomalies hours apart can end up in the same event (see
+:mod:`tslies.stats.focus`). Restarting is the safer choice.
+
+Provenance
+----------
+This module replaces an earlier implementation adapted from the FOCuS reference notebooks of
+K. Ward (https://github.com/kesward/FOCuS) and from the Poisson-FOCuS trigger of DeepGRB
+(https://github.com/rcrupi/DeepGRB; R. Crupi et al., Experimental Astronomy 2023,
+doi:10.1007/s10686-023-09915-7). The detectors now live in :mod:`tslies.stats.focus`. The
+coincidence condition across groups of channels follows the DeepGRB trigger, which requires at
+least two detectors over threshold at the same time.
 """
+
+from __future__ import annotations
+
+import copy
+import logging
 import os
-from math import log
-import multiprocessing
-from datetime import timedelta
-from tqdm import tqdm
+from typing import Iterable, Mapping, Optional, Sequence, Union
+
 import numpy as np
 import pandas as pd
-import bisect
 
+from .stats.focus import gaussian_focus, poisson_focus
 
-from .config import (
-    RESULTS_DIR,
-    ANOMALIES_DIR,
-    ANOMALIES_TIME_DIR,
-    ANOMALIES_PLOTS_DIR,
-    require_existing_dir
-)
-from .plotter import Plotter
-from .utils import Data, Logger, logger_decorator
+logger = logging.getLogger(__name__)
 
-if RESULTS_DIR is None or ANOMALIES_DIR is None or ANOMALIES_PLOTS_DIR is None:
-    raise RuntimeError(
-        "TSLies output directories are not initialised. Configure the base directory via "
-        "tslies.config.set_base_dir(...) or set the TSLIES_DIR environment variable before using tslies.trigger."
-    )
+_TRIGGER_TYPES = {
+    "z_score": "z_score",
+    "focus": "focus",
+    "gauss_focus": "focus",
+    "gaussian_focus": "focus",
+    "poisson_focus": "poisson_focus",
+}
 
-TRIGGER_FOLDER_NAME = str(ANOMALIES_DIR)
-TRIGGER_TIME_FOLDER_NAME = str(ANOMALIES_TIME_DIR)
-PLOT_TRIGGER_FOLDER_NAME = str(ANOMALIES_PLOTS_DIR)
-
-
-
-class Curve:
-    """
-    From the original python implementation of
-    FOCuS Poisson by Kester Ward (2021). All rights reserved.
-    """
-
-    def __init__(self, k_T, lambda_1, t=0):
-        self.a = k_T
-        self.b = -lambda_1
-        self.t = t
-
-    def __repr__(self):
-        return "({:d}, {:.2f}, {:d})".format(self.a, self.b, self.t)
-
-    def evaluate(self, mu):
-        return max(self.a * log(mu) + self.b * (mu - 1), 0)
-
-    def update(self, k_T, lambda_1):
-        return Curve(self.a + k_T, -self.b + lambda_1, self.t - 1)
-
-    def ymax(self):
-        return self.evaluate(self.xmax())
-
-    def xmax(self):
-        return -self.a / self.b
-
-    def is_negative(self):
-        # returns true if slope at mu=1 is negative (i.e. no evidence for positive change)
-        return (self.a + self.b) <= 0
-
-    def dominates(self, other_curve):
-        return (self.a + self.b >= other_curve.a + other_curve.b) and (self.a * other_curve.b <= other_curve.a * self.b)
-
-class Quadratic:
-    def __init__(self, a, b):
-        self.a = a
-        self.b = b
-
-    def __repr__(self):
-        return f'Quadratic: {self.a}x^2+{self.b}x'
-
-    def __sub__(self, other_quadratic):
-        #subtraction: needed for quadratic differences
-        return Quadratic(self.a-other_quadratic.a, self.b-other_quadratic.b)
-
-    def __add__(self, other_quadratic):
-        #addition: needed for quadratic differences
-        return Quadratic(self.a+other_quadratic.a, self.b+other_quadratic.b)
-
-    def evaluate(self, mu):
-        return np.maximum(self.a*mu**2 + self.b*mu, 0)
-
-    def update(self, X_T, decay_factor=0.8):
-        return Quadratic(self.a - 1, self.b * decay_factor + 2 * X_T)
-
-    def ymax(self):
-        return -self.b**2/(4*self.a) 
-
-    def xmax(self):
-        if (self.a==0)and(self.b==0):
-            return 0
-        else:
-            return -self.b/(2*self.a)
-
-    def dominates(self, other_quadratic):
-        return (self.b>other_quadratic.b)and(self.xmax()>other_quadratic.xmax())
 
 class Trigger:
-    logger = Logger('Trigger').get_logger()
+    """
+    Detect anomalies in multichannel time series from observed values and predicted background.
 
-    def __init__(self, tiles_df, y_cols, y_cols_pred, thresholds=None, trigger_type='z_score', units={}, latex_y_cols={}):
+    Parameters
+    ----------
+    - tiles_df (pd.DataFrame): One row per time bin, holding observed, predicted and (for the
+      Gaussian detectors) standard-deviation columns, plus ``time_col``. It is never modified.
+    - y_cols (Sequence[str]): Observed channels.
+    - y_cols_pred (Sequence[str]): Predicted background, one column per channel of ``y_cols``.
+    - thresholds (Optional[float | Mapping[str, float]]): Significance threshold, one for all
+      channels or one per channel. ``None`` means 5 for every channel.
+    - trigger_type (str): ``'focus'``, ``'poisson_focus'`` or ``'z_score'``.
+    - units (Optional[Mapping[str, str]]): Units per column, used by the plots.
+    - latex_y_cols (Optional[Mapping[str, str]]): LaTeX labels per channel, used by the plots.
+    - std_cols (Optional[Sequence[str]]): Standard deviation of the background prediction, one per
+      channel. Defaults to ``'<channel>_std'``. Not used by ``'poisson_focus'``.
+    - side (str): ``'up'``, ``'down'`` or ``'both'``: direction of the anomalies to look for.
+      ``'poisson_focus'`` only supports ``'up'``.
+    - mu_min (Optional[float]): Minimum intensity of the change looked for by the FOCuS detectors:
+      a shift in noise standard deviations (``'focus'``, default 0) or a rate multiplier
+      (``'poisson_focus'``, default 1). See :mod:`tslies.stats.focus`.
+    - after_alarm (str): What the FOCuS detectors do after every alarm: ``'restart'`` from
+      scratch (the default) or keep their memory with the alarmed sample stored as
+      ``'background'``. See the module docstring.
+    - groups (Optional[Mapping[str, Sequence[str]]]): Partition of ``y_cols`` into groups, e.g.
+      the energy bands of one detector face. A group is triggered when any of its channels is.
+      Defaults to one group per channel.
+    - min_groups (int): Minimum number of groups triggered at the same time for a sample to be
+      anomalous. 1 is a logical OR over groups.
+    - time_col (str): Column with the timestamp of each row.
+
+    Raises
+    ------
+    - ValueError: On inconsistent columns, thresholds, groups or options.
+
+    Examples
+    --------
+    >>> rng = np.random.default_rng(0)
+    >>> df = pd.DataFrame({'datetime': pd.date_range('2024-01-01', periods=300, freq='s'),
+    ...                    'a': rng.normal(size=300), 'a_pred': 0.0, 'a_std': 1.0})
+    >>> df.loc[100:129, 'a'] += 2.0
+    >>> trig = Trigger(df, ['a'], ['a_pred'], thresholds=6.0)
+    >>> _ = trig.run()
+    >>> events, _ = trig.identify_and_merge_triggers()
+    >>> len(events)
+    1
+    """
+
+    def __init__(
+        self,
+        tiles_df: pd.DataFrame,
+        y_cols: Sequence[str],
+        y_cols_pred: Sequence[str],
+        thresholds: Optional[Union[float, Mapping[str, float]]] = None,
+        trigger_type: str = "focus",
+        units: Optional[Mapping[str, str]] = None,
+        latex_y_cols: Optional[Mapping[str, str]] = None,
+        *,
+        std_cols: Optional[Sequence[str]] = None,
+        side: str = "up",
+        mu_min: Optional[float] = None,
+        after_alarm: str = "restart",
+        groups: Optional[Mapping[str, Sequence[str]]] = None,
+        min_groups: int = 1,
+        time_col: str = "datetime",
+    ):
+        if not isinstance(tiles_df, pd.DataFrame):
+            raise ValueError("tiles_df must be a pandas DataFrame.")
+        self.y_cols = list(y_cols)
+        self.y_cols_pred = list(y_cols_pred)
+        if not self.y_cols:
+            raise ValueError("y_cols must contain at least one channel.")
+        if len(set(self.y_cols)) != len(self.y_cols):
+            raise ValueError("y_cols contains duplicated channels.")
+        if len(self.y_cols_pred) != len(self.y_cols):
+            raise ValueError(
+                f"y_cols_pred must have one column per channel: got {len(self.y_cols_pred)} "
+                f"for {len(self.y_cols)} channels."
+            )
+
+        if trigger_type not in _TRIGGER_TYPES:
+            raise ValueError(f"trigger_type must be one of {sorted(_TRIGGER_TYPES)}, got {trigger_type!r}.")
+        self.trigger_type = trigger_type
+        self._detector = _TRIGGER_TYPES[trigger_type]
+
+        if side not in ("up", "down", "both"):
+            raise ValueError(f"side must be 'up', 'down' or 'both', got {side!r}.")
+        if self._detector == "poisson_focus" and side != "up":
+            raise ValueError("poisson_focus only detects increases: use side='up'.")
+        self.side = side
+
+        if self._detector == "z_score":
+            if mu_min is not None:
+                raise ValueError("mu_min only applies to the FOCuS detectors, not to 'z_score'.")
+        elif mu_min is None:
+            mu_min = 1.0 if self._detector == "poisson_focus" else 0.0
+        self.mu_min = mu_min
+
+        if after_alarm not in ("restart", "background"):
+            raise ValueError(f"after_alarm must be 'restart' or 'background', got {after_alarm!r}.")
+        if self._detector == "z_score" and after_alarm != "restart":
+            raise ValueError("after_alarm only applies to the FOCuS detectors, not to 'z_score'.")
+        self.after_alarm = after_alarm
+
+        if self._detector == "poisson_focus":
+            self.std_cols = None
+        else:
+            self.std_cols = list(std_cols) if std_cols is not None else [f"{c}_std" for c in self.y_cols]
+            if len(self.std_cols) != len(self.y_cols):
+                raise ValueError("std_cols must have one column per channel.")
+
+        self.time_col = time_col
+        needed = self.y_cols + self.y_cols_pred + (self.std_cols or []) + [time_col]
+        missing = [c for c in needed if c not in tiles_df.columns]
+        if missing:
+            raise ValueError(f"tiles_df is missing the columns {missing}.")
+        self.tiles_df = tiles_df
+
+        self.thresholds = self._as_thresholds(thresholds)
+        self.groups = self._as_groups(groups)
+        if not 1 <= int(min_groups) <= len(self.groups):
+            raise ValueError(f"min_groups must be between 1 and the number of groups ({len(self.groups)}).")
+        self.min_groups = int(min_groups)
+
+        self.units = dict(units or {})
+        self.latex_y_cols = dict(latex_y_cols or {})
+
+        self.results: Optional[pd.DataFrame] = None
+        self.return_df: Optional[pd.DataFrame] = None
+        self.mask: Optional[np.ndarray] = None
+        self.merged_anomalies: dict = {}
+        self._resets: Optional[np.ndarray] = None
+
+    def _as_thresholds(self, thresholds) -> dict:
+        if thresholds is None:
+            thresholds = 5.0
+        if isinstance(thresholds, Mapping):
+            missing = [c for c in self.y_cols if c not in thresholds]
+            if missing:
+                raise ValueError(f"thresholds is missing the channels {missing}.")
+            values = {c: float(thresholds[c]) for c in self.y_cols}
+        else:
+            values = {c: float(thresholds) for c in self.y_cols}
+        bad = [c for c, v in values.items() if not (np.isfinite(v) and v > 0)]
+        if bad:
+            raise ValueError(f"thresholds must be finite and positive, invalid for {bad}.")
+        return values
+
+    def _as_groups(self, groups) -> dict:
+        if groups is None:
+            return {c: [c] for c in self.y_cols}
+        groups = {name: list(members) for name, members in groups.items()}
+        members = [c for cols in groups.values() for c in cols]
+        unknown = sorted(set(members) - set(self.y_cols))
+        repeated = sorted({c for c in members if members.count(c) > 1})
+        uncovered = [c for c in self.y_cols if c not in members]
+        if unknown or repeated or uncovered or any(not cols for cols in groups.values()):
+            raise ValueError(
+                "groups must partition y_cols into non-empty groups: "
+                f"unknown {unknown}, repeated {repeated}, not assigned {uncovered}."
+            )
+        return groups
+
+    def _channel_significance(self, face: str, face_pred: str, std_col: Optional[str],
+                              resets: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Significance, change length and sign of one channel; NaN where the input is unusable."""
+        y = self.tiles_df[face].to_numpy(dtype=float)
+        pred = self.tiles_df[face_pred].to_numpy(dtype=float)
+        if self._detector == "poisson_focus":
+            finite = np.isfinite(y) & np.isfinite(pred) & (pred > 0)
+        else:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                z = (y - pred) / self.tiles_df[std_col].to_numpy(dtype=float)
+            finite = np.isfinite(z)
+        n_bad = int((~finite).sum())
+        if n_bad:
+            logger.warning("%s: %d samples with non-finite residuals or non-positive background "
+                           "are treated as gaps.", face, n_bad)
+
+        significance = np.full(len(y), np.nan)
+        length = np.zeros(len(y), dtype=np.int64)
+        sign = np.zeros(len(y), dtype=np.int64)
+        idx = np.flatnonzero(finite)
+        if idx.size == 0:
+            return significance, length, sign
+
+        if self._detector == "z_score":
+            zs = z[idx]
+            evidence = {"up": zs, "down": -zs, "both": np.abs(zs)}[self.side]
+            significance[idx] = np.maximum(evidence, 0.0)
+            length[idx] = (evidence > 0).astype(np.int64)
+            sign[idx] = np.where(evidence > 0, np.sign(zs), 0).astype(np.int64)
+            return significance, length, sign
+
+        # restart the detector after a gap, and when a reset falls on the gap itself
+        cum_resets = np.cumsum(resets)
+        sub_resets = resets[idx].copy()
+        sub_resets[1:] |= (np.diff(idx) > 1) | (np.diff(cum_resets[idx]) > 0)
+        # what the detector does after every alarm
+        threshold = self.thresholds[face]
+        after_alarm = {"restart_above": threshold} if self.after_alarm == "restart" else {"background_above": threshold}
+        if self._detector == "focus":
+            res = gaussian_focus(z[idx], resets=sub_resets, side=self.side, mu_min=self.mu_min, **after_alarm)
+        else:
+            res = poisson_focus(y[idx], pred[idx], resets=sub_resets, mu_min=self.mu_min, **after_alarm)
+        significance[idx] = res.significance
+        length[idx] = res.length
+        sign[idx] = res.sign
+        return significance, length, sign
+
+    def run(self, reset_condition=None) -> pd.DataFrame:
         """
-        Configure a trigger pipeline combining residuals and thresholding.
+        Compute the significance of every channel and flag the anomalous samples.
 
         Parameters
         ----------
-        - tiles_df (pd.DataFrame): Data frame containing signals and predictions.
-        - y_cols (Iterable[str]): Column names representing observed signals.
-        - y_cols_pred (Iterable[str]): Column names representing predicted baselines.
-        - thresholds (Optional[dict[str, float]]): Per-face significance thresholds.
-        - trigger_type (str): Algorithm keyword, currently ``'z_score'`` or ``'focus'`` variants.
-        - units (dict[str, str]): Optional human-readable units per face.
-        - latex_y_cols (dict[str, str]): Optional LaTeX labels mapped by column.
+        - reset_condition (Optional[array-like of bool]): ``True`` on the first sample after a
+          data gap (e.g. an SAA passage): the detectors restart there, and events never span it.
+
+        Returns
+        -------
+        - pd.DataFrame: Copy of ``tiles_df`` with an ``anomaly`` column: 1 where at least
+          ``min_groups`` groups are anomalous. A channel is anomalous over the stretch of data that
+          raised each of its alarms, from the estimated start of the change to the alarm (for
+          ``'z_score'``, the alarm alone). The per-sample details are in ``results``:
+          ``<channel>_significance``, ``<channel>_length`` (samples in the change ending at each
+          sample) and ``<channel>_triggered`` (anomalous samples).
 
         Raises
         ------
-        - ValueError: If provided thresholds do not cover all ``y_cols``.
+        - ValueError: If ``reset_condition`` has the wrong length, or on invalid counts for
+          ``'poisson_focus'``.
         """
-        self.tiles_df = tiles_df
-        self.y_cols = y_cols
-        self.y_cols_pred = y_cols_pred
-        self.units = units
-        self.latex_y_cols = latex_y_cols
-        self.trigger_type = trigger_type
-        self.thresholds = thresholds if thresholds is not None else {y_col: 3.0 for y_col in y_cols}
-
-        self.triggs_dict = {}
-        self.merged_anomalies = {}
-        self.mask = None
-
-    def focus_step_quad(self, quadratic_list, X_T, decay_factor=0.99):
-        new_quadratic_list = []
-        global_max = 0
-        time_offset = 0
-        
-        if not quadratic_list: #list is empty
-            
-            if X_T <= 0:
-                return new_quadratic_list, global_max, time_offset
-            else:
-                updated_q = Quadratic(-1, 2*X_T)
-                new_quadratic_list.append(updated_q)
-                global_max = updated_q.ymax()
-                time_offset = updated_q.a
-                
-        else: #list not empty: go through and prune
-            
-            updated_q = quadratic_list[0].update(X_T, decay_factor) #check leftmost quadratic separately
-            if updated_q.b < 0: #our leftmost quadratic is negative i.e. we have no quadratics
-                return new_quadratic_list, global_max, time_offset
-            else:
-                new_quadratic_list.append(updated_q)
-                if updated_q.ymax() > global_max:   #we have a new candidate for global maximum
-                    global_max = updated_q.ymax()
-                    time_offset = updated_q.a
-
-                for q in quadratic_list[1:]+[Quadratic(0, 0)]:#add on new quadratic to end of list
-                    updated_q = q.update(X_T)
-
-                    if new_quadratic_list[-1].dominates(updated_q):
-                        break #quadratic q and all quadratics to the right of it are pruned out by q's left neighbour
-                    else:
-                        new_quadratic_list.append(updated_q)
-
-                        if updated_q.ymax() > global_max:   #we have a new candidate for global maximum
-                            global_max = updated_q.ymax()
-                            time_offset = updated_q.a
-            
-        return new_quadratic_list, global_max, time_offset
-
-
-    def focus_step_curve(self, curve_list, k_T, lambda_1):
-        """
-        Update the curve list according to the FOCuS Poisson formulation.
-
-        Parameters
-        ----------
-        - curve_list (list[Curve]): Current set of candidate curves.
-        - k_T (float): Observed count in the latest time bin.
-        - lambda_1 (float): Expected count under the null hypothesis.
-
-        Returns
-        -------
-        - tuple[list[Curve], float, int]: Updated curves, global maximum, and time offset.
-        """
-        if not curve_list:  # list is empty
-            if k_T <= lambda_1:
-                return [], 0., 0
-            else:
-                updated_c = Curve(k_T, lambda_1, t=-1)
-                return [updated_c], updated_c.ymax(), updated_c.t
-
-        else:  # list not empty: go through and prune
-
-            updated_c = curve_list[0].update(k_T, lambda_1)  # check leftmost quadratic separately
-            if updated_c.is_negative():  # our leftmost quadratic is negative i.e. we have no quadratics
-                return [], 0., 0,
-            else:
-                new_curve_list = [updated_c]
-                global_max = updated_c.ymax()
-                time_offset = updated_c.t
-
-                for c in curve_list[1:] + [Curve(0, 0)]:  # add on new quadratic to end of list
-                    updated_c = c.update(k_T, lambda_1)
-                    if new_curve_list[-1].dominates(updated_c):
-                        break
-                    else:
-                        new_curve_list.append(updated_c)
-                        ymax = updated_c.ymax()
-                        if ymax > global_max:  # we have a new candidate for global maximum
-                            global_max = ymax
-                            time_offset = updated_c.t
-
-        return new_curve_list, global_max, time_offset
-
-    def trigger_face_z_score(self, signal, face, reset_indices, threshold):
-        """
-        Flag bins where the residual z-score exceeds the configured threshold.
-
-        Parameters
-        ----------
-        - signal (np.ndarray): Residual z-score signal.
-        - face (str): Identifier of the monitored face.
-        - reset_indices (np.ndarray): Indices where the rolling detector resets.
-        - threshold (float): Cut-off value for trigger activation.
-
-        Returns
-        -------
-        - dict[str, np.ndarray]: Boolean trigger flags and time offsets per face.
-        """
-        result = {f'{face}_triggered': signal > threshold, f'{face}_offset': signal*0, f'{face}_significance': signal}
-        return result
-
-    def trigger_gauss_focus(self, signal, face, reset_indices, threshold):
-        """
-        From the original python implementation of
-        FOCuS Poisson by Kester Ward (2021). All rights reserved.
-        """
-        result = {f'{face}_offset': [], f'{face}_triggered': [], f'{face}_significance': []}
-        curve_list = []
-        
-        start = 0
-        for end in tqdm(reset_indices, desc=face):
-            for value in signal[start:end]:
-                curve_list, global_max, offset = self.focus_step_quad(curve_list, value, 0.95)
-                result[f'{face}_offset'].append(offset)
-                result[f'{face}_significance'].append(global_max)
-            curve_list = []
-            start = end
-
-        result[f'{face}_significance'] = np.sqrt(2 * np.array(result[f'{face}_significance']))
-        result[f'{face}_triggered'] = result[f'{face}_significance'] > threshold
-        return result
-
-    def compute_direction(self, values_dict):
-
-        orig_max_values = pd.Series(values_dict)[['Xpos_middle', 'Xneg_middle', 'Ypos_middle', 'Yneg_middle', 'top_middle']]
-        max_values = orig_max_values.clip(lower=0)
-        if max_values['Xpos_middle'] >= max_values['Xneg_middle']:
-            vx = max_values['Xpos_middle']
-        else:
-            vx = -max_values['Xneg_middle']
-
-        if max_values['Ypos_middle'] >= max_values['Yneg_middle']:
-            vy = max_values['Ypos_middle']
-        else:
-            vy = -max_values['Yneg_middle']
-        vz = max_values['top_middle']
-        norm = np.sqrt(vx*vx + vy*vy + vz*vz)
-        if norm == 0:
-            print('max_values:', orig_max_values)
-            print('vx, vy, vz:', vx, vy, vz)
-        ux = vx / norm
-        uy = vy / norm
-        uz = vz / norm
-
-        theta = np.arccos(uz)                      # angolo da +Z
-        phi = np.arctan2(uy, ux) % (2*np.pi)     # azimutale nel piano XY
-
-        return {
-            'theta_deg': np.degrees(theta),
-            'phi_deg': np.degrees(phi)
-        }
-
-    @logger_decorator(logger)
-    def run(self, reset_condition=None, use_multiprocessing=True):
-        """Run the trigger algorithm on the dataset.
-
-        Args:
-            `tiles_df` (pd.DataFrame): dataframe containing the data
-            `y_cols` (list): list of columns to be used for the trigger
-            `y_pred_cols` (list): list of columns containing the predictions
-
-        Returns
-            dict: dict containing the anomalies
-        """
+        n = len(self.tiles_df)
         if reset_condition is None:
-            reset_condition = np.zeros(len(self.tiles_df), dtype=bool)
-        reset_indices = np.where(reset_condition)[0]
-        reset_indices = np.append(reset_indices, len(reset_condition))
-
-        triggerer = self.trigger_face_z_score if self.trigger_type.lower() == 'z_score' else self.trigger_gauss_focus
-        if use_multiprocessing:
-            pool = multiprocessing.Pool(5)
-            results = []
-            
-            for face, face_pred in zip(self.y_cols, self.y_cols_pred):
-                signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
-                result = pool.apply_async(triggerer, (signal.values, face, reset_indices, self.thresholds[face]))
-                results.append(result)
-
-            for result in results:
-                self.triggs_dict.update(result.get())
-            pool.close()
-            pool.join()
+            resets = np.zeros(n, dtype=bool)
         else:
-            for face, face_pred in zip(self.y_cols, self.y_cols_pred):
-                signal = (self.tiles_df[face] - self.tiles_df[face_pred]) / self.tiles_df[f'{face}_std']
-                result = triggerer(signal.values, face, reset_indices, self.thresholds[face])
-                self.triggs_dict.update(result)
+            resets = np.asarray(reset_condition, dtype=bool)
+            if resets.shape != (n,):
+                raise ValueError(f"reset_condition must have shape ({n},), got {resets.shape}.")
+        self._resets = resets
 
-        triggered_cols = [f'{face}_triggered' for face in self.y_cols]
-        triggered_arrays = [np.array(self.triggs_dict[col]) for col in triggered_cols]
-        self.mask = np.any(triggered_arrays, axis=0)
-        self.tiles_df['anomaly'] = self.mask.astype(int)
-        return self.tiles_df
+        columns = {}
+        triggered = {}
+        std_cols = self.std_cols or [None] * len(self.y_cols)
+        for face, face_pred, std_col in zip(self.y_cols, self.y_cols_pred, std_cols):
+            significance, length, sign = self._channel_significance(face, face_pred, std_col, resets)
+            alarms = np.flatnonzero(np.nan_to_num(significance, nan=0.0) > self.thresholds[face])
+            edges = np.zeros(n + 1, dtype=np.int64)  # mark each change, from its start to its alarm
+            np.add.at(edges, alarms - length[alarms] + 1, 1)
+            np.add.at(edges, alarms + 1, -1)
+            triggered[face] = np.cumsum(edges[:-1]) > 0
+            columns[f"{face}_significance"] = significance
+            columns[f"{face}_length"] = length
+            columns[f"{face}_triggered"] = triggered[face]
+            if self.side == "both":
+                columns[f"{face}_sign"] = sign
+        columns[self.time_col] = self.tiles_df[self.time_col].to_numpy()
+        self.results = pd.DataFrame(columns)
+        self.return_df = self.results
 
-    def identify_and_merge_triggers(self, merge_interval=3):
-        triggs_df = pd.DataFrame(self.triggs_dict)
-        triggs_df['datetime'] = self.tiles_df['datetime']
-        self.return_df = triggs_df.copy()
-        triggs_df = triggs_df[self.mask]
+        groups_triggered = np.zeros(n, dtype=np.int64)
+        for members in self.groups.values():
+            groups_triggered += np.any([triggered[c] for c in members], axis=0)
+        self.mask = groups_triggered >= self.min_groups
 
-        anomalies_faces = {face: [] for face in self.y_cols}
-        old_stopping_time = {face: -1 for face in self.y_cols}
+        out = self.tiles_df.copy()
+        out["anomaly"] = self.mask.astype(int)
+        return out
 
-        if triggs_df.empty:
-            self.logger.info('No triggers detected.')
-            return {}, self.return_df
+    def identify_and_merge_triggers(self, merge_interval: int = 60) -> tuple[dict, pd.DataFrame]:
+        """
+        Group the anomalous samples into events.
 
-        for face in self.y_cols:
-            triggs_df[f'new_start_datetime_{face}'] = triggs_df.apply(lambda r: str(r['datetime'] + timedelta(seconds=r[f'{face}_offset'])), axis=1)
-        triggs_df['new_stop_datetime'] = triggs_df['datetime'] + timedelta(seconds=1)
+        An event is a run of anomalous samples (see :meth:`run`) of the same data segment; runs
+        separated by at most ``merge_interval`` non-anomalous samples are merged. When the FOCuS
+        detectors restart after every alarm (the default), a long anomaly raises a sequence of alarms, and the
+        changes that raise them follow one another, but with short gaps: after a restart the
+        estimated start of the next change can fall some tens of samples after the previous alarm,
+        where the noise happened to be low. ``merge_interval`` must be long enough to bridge those
+        gaps, or a long anomaly is split into several events.
 
-        for row in tqdm(triggs_df.itertuples(index=True), total=len(triggs_df), desc='Identifying triggers'):
-            index = row.Index
-            for face in self.y_cols:
-                if getattr(row, f'{face}_triggered'):
-                    new_start_index = getattr(row, f'{face}_offset') + index
-                    new_start_datetime = getattr(row, f'new_start_datetime_{face}')
-                    new_stop_index = index + 1
-                    new_stop_datetime = row.new_stop_datetime
+        For every channel of an event: ``start_index`` is the first anomalous sample (the
+        estimated start of its first change), ``detection_index`` its first alarm, ``peak_index``
+        its alarm with the highest significance and ``stop_index`` its last anomalous sample.
 
-                    if index == old_stopping_time[face] + 1 or new_start_index <= old_stopping_time[face] + merge_interval and anomalies_faces[face]:
-                        last_anomaly = anomalies_faces[face].pop()
-                        new_start_index = last_anomaly[1]
-                        new_start_datetime = last_anomaly[3]
-                    new_anomaly = (face, new_start_index, new_stop_index, new_start_datetime, new_stop_datetime)
-                    anomalies_faces[face].append(new_anomaly)
-                    old_stopping_time[face] = new_stop_index
-            
-        merged_starts = []
-        anomalies_list = [anomaly for face_anomalies in anomalies_faces.values() for anomaly in face_anomalies]
-        anomalies_list.sort(key=lambda x: x[1])
-        print(f'Merging {len(anomalies_list)} triggers...', end=' ')
-        for face, start, stopping_time, start_datetime, stop_datetime in anomalies_list:
-            if returned := self.is_mergeable(start, merged_starts, tolerance=merge_interval):
-                start, old_start = returned
-                if start < old_start:
-                    self.merged_anomalies[start] = self.merged_anomalies[old_start]
-                    del self.merged_anomalies[old_start]
-                elif start > old_start:
-                    start = old_start
-                self.merged_anomalies[start][face] = {'start_index': start, 'stop_index': stopping_time, 'start_datetime': start_datetime, 'stop_datetime': stop_datetime}
-                if start not in merged_starts:
-                    bisect.insort(merged_starts, start)
-                if old_start in merged_starts and old_start != start:
-                    merged_starts.remove(old_start)
+        Parameters
+        ----------
+        - merge_interval (int): Maximum number of non-anomalous samples between two runs that are
+          still merged into one event: 60 samples is one minute of 1 s bins, as in the TSLies
+          examples.
+
+        Returns
+        -------
+        - tuple[dict, pd.DataFrame]: ``{event_id: {channel: info}}``, where ``info`` holds
+          ``start_index``, ``detection_index``, ``peak_index``, ``stop_index`` (positions in
+          ``tiles_df``, inclusive), ``max_significance`` and the corresponding timestamps; and the
+          per-sample ``results``.
+
+        Raises
+        ------
+        - RuntimeError: If :meth:`run` has not been called.
+        """
+        if self.mask is None:
+            raise RuntimeError("Call run() before identify_and_merge_triggers().")
+        if merge_interval < 0:
+            raise ValueError("merge_interval must be non-negative.")
+        self.merged_anomalies = {}
+        mask = self.mask
+        if not mask.any():
+            logger.info("No triggers detected.")
+            return self.merged_anomalies, self.results
+
+        edges = np.diff(np.r_[0, mask.astype(np.int8), 0])
+        run_starts = np.flatnonzero(edges == 1)
+        run_stops = np.flatnonzero(edges == -1) - 1
+        segment = np.cumsum(self._resets)
+        spans = []
+        for a, b in zip(run_starts, run_stops):
+            if spans and a - spans[-1][1] - 1 <= merge_interval and segment[a] == segment[spans[-1][1]]:
+                spans[-1][1] = b
             else:
-                self.merged_anomalies[start] = {face: {'start_index': start, 'stop_index': stopping_time, 'start_datetime': start_datetime, 'stop_datetime': stop_datetime}}
-                bisect.insort(merged_starts, start)
+                spans.append([a, b])
 
-        print(f'{len(self.merged_anomalies)} anomalies in total.')
-        return self.merged_anomalies, self.return_df
-    
-    def get_detections_df(self, cols=[]) -> pd.DataFrame:
-        detections = {}
-        default_cols = ['datetime', 'timestamp']
-        first_anomaly = next(iter(self.merged_anomalies.values()), {})
-        first_face = next(iter(first_anomaly.values()), {})
-        keys = [def_col for key in first_face.keys() for def_col in default_cols if def_col in key]
-        keys = set(keys + cols)
-        for key in keys:
-            detections[f'start_{key}'] = []
-            detections[f'stop_{key}'] = []
-        detections['triggered_faces'] = []
+        times = self.results[self.time_col]
+        for event_id, (a, b) in enumerate(spans):
+            event = {}
+            for face in self.y_cols:
+                idx = np.flatnonzero(self.results[f"{face}_triggered"].to_numpy()[a:b + 1]) + a
+                if idx.size == 0:
+                    continue
+                sig = np.nan_to_num(self.results[f"{face}_significance"].to_numpy(), nan=0.0)
+                alarms = idx[sig[idx] > self.thresholds[face]]
+                if alarms.size == 0:  # the alarm fell outside the coincidence with other groups
+                    alarms = idx
+                peak = int(alarms[np.argmax(sig[alarms])])
+                start, detection, stop = int(idx[0]), int(alarms[0]), int(idx[-1])
+                event[face] = {
+                    "start_index": start,
+                    "detection_index": detection,
+                    "peak_index": peak,
+                    "stop_index": stop,
+                    "max_significance": float(sig[peak]),
+                    f"start_{self.time_col}": times.iat[start],
+                    f"detection_{self.time_col}": times.iat[detection],
+                    f"peak_{self.time_col}": times.iat[peak],
+                    f"stop_{self.time_col}": times.iat[stop],
+                }
+            self.merged_anomalies[event_id] = event
+        logger.info("%d events from %d runs of anomalous samples.", len(spans), len(run_starts))
+        return self.merged_anomalies, self.results
 
-        for _, anomaly in sorted(self.merged_anomalies.items(), key=lambda x: int(x[0]), reverse=True):
-            start_idx = int(min(face['start_index'] for face in anomaly.values()))
-            end_idx = int(max(face['stop_index'] for face in anomaly.values()))
-            triggered_faces = list(anomaly.keys())
+    def get_detections_df(self, cols: Optional[Iterable[str]] = None) -> pd.DataFrame:
+        """
+        Summarise the events, one row each, in chronological order.
 
-            start_row = self.tiles_df.iloc[start_idx]
-            end_row = self.tiles_df.iloc[end_idx]
+        Parameters
+        ----------
+        - cols (Optional[Iterable[str]]): Extra columns of ``tiles_df`` to report at the start
+          and at the stop of each event, e.g. ``['MET']``.
 
-            detections['triggered_faces'].append('/'.join(triggered_faces))
+        Returns
+        -------
+        - pd.DataFrame: ``event_id``, ``start_<col>`` and ``stop_<col>`` for ``time_col`` and
+          ``cols``, the detection (first sample over threshold) and peak times,
+          ``triggered_faces`` ('/'-separated), ``n_channels``, ``peak_channel``,
+          ``max_significance`` and the start/detection/peak/stop positions.
+        """
+        keys = [self.time_col] + [c for c in (cols or []) if c != self.time_col]
+        rows = []
+        for event_id, event in self.merged_anomalies.items():
+            start = min(info["start_index"] for info in event.values())
+            detection = min(info["detection_index"] for info in event.values())
+            stop = max(info["stop_index"] for info in event.values())
+            peak_channel = max(event, key=lambda face: event[face]["max_significance"])
+            row = {"event_id": event_id}
             for key in keys:
-                detections[f'start_{key}'].append(start_row[key])
-                detections[f'stop_{key}'].append(end_row[key])
+                row[f"start_{key}"] = self.tiles_df[key].iat[start]
+                row[f"stop_{key}"] = self.tiles_df[key].iat[stop]
+            row[f"detection_{self.time_col}"] = self.tiles_df[self.time_col].iat[detection]
+            row[f"peak_{self.time_col}"] = self.tiles_df[self.time_col].iat[event[peak_channel]["peak_index"]]
+            row.update({
+                "triggered_faces": "/".join(event),
+                "n_channels": len(event),
+                "peak_channel": peak_channel,
+                "max_significance": event[peak_channel]["max_significance"],
+                "start_index": start,
+                "detection_index": detection,
+                "peak_index": event[peak_channel]["peak_index"],
+                "stop_index": stop,
+            })
+            rows.append(row)
+        columns = (["event_id"] + [f"{p}_{k}" for k in keys for p in ("start", "stop")]
+                   + [f"detection_{self.time_col}", f"peak_{self.time_col}", "triggered_faces",
+                      "n_channels", "peak_channel", "max_significance", "start_index",
+                      "detection_index", "peak_index", "stop_index"])
+        return pd.DataFrame(rows, columns=columns).sort_values("start_index", ignore_index=True)
 
-        return pd.DataFrame(detections)
+    def save_detections_csv(self, detections_df: pd.DataFrame, file: str = "", suffix: str = "",
+                            folder: Optional[Union[str, os.PathLike]] = None) -> str:
+        """
+        Write a detections table to ``detections[_file][suffix].csv``.
 
-    def save_detections_csv(self, detections_df: pd.DataFrame, file='', suffix=''):
-        require_existing_dir(TRIGGER_TIME_FOLDER_NAME)
-        file = f'_{file}' if file else ''
+        Parameters
+        ----------
+        - detections_df (pd.DataFrame): Table to write, e.g. from :meth:`get_detections_df`.
+        - file (str): Optional name inserted after ``detections_``.
+        - suffix (str): Optional suffix appended to the file name.
+        - folder (Optional[str | os.PathLike]): Destination folder. Defaults to the anomalies
+          folder of the current TSLies session (``tslies.config.ANOMALIES_TIME_DIR``).
 
-        detections_file_path = os.path.join(TRIGGER_TIME_FOLDER_NAME, f'detections{file}.csv')
-        detections_file_path = detections_file_path.replace('.csv', f'{suffix}.csv')
-        detections_df.to_csv(detections_file_path, index=False)
+        Returns
+        -------
+        - str: Path of the written file.
+        """
+        if folder is None:
+            from .config import ANOMALIES_TIME_DIR
+            if ANOMALIES_TIME_DIR is None:
+                raise RuntimeError("TSLies base directory is not configured: pass folder explicitly.")
+            folder = ANOMALIES_TIME_DIR
+        os.makedirs(folder, exist_ok=True)
+        name = f"detections{'_' + file if file else ''}{suffix}.csv"
+        path = os.path.join(folder, name)
+        detections_df.to_csv(path, index=False)
+        return path
 
-    def filter_from_catalog(self, catalog : pd.DataFrame, merged_anomalies=None, detections_df : pd.DataFrame=None) -> tuple[pd.DataFrame, dict]:
+    def filter_from_catalog(self, catalog: pd.DataFrame, merged_anomalies: Optional[dict] = None,
+                            detections_df: Optional[pd.DataFrame] = None, start_col: str = "TIME",
+                            stop_col: str = "END_TIME") -> tuple[pd.DataFrame, dict]:
+        """
+        Keep the events whose time interval overlaps at least one catalog entry.
+
+        Naive timestamps, in the catalog or in the data, are taken as UTC.
+
+        Parameters
+        ----------
+        - catalog (pd.DataFrame): Catalog with one row per known event.
+        - merged_anomalies (Optional[dict]): Events as returned by
+          :meth:`identify_and_merge_triggers`. Defaults to the last computed ones.
+        - detections_df (Optional[pd.DataFrame]): Events summary from :meth:`get_detections_df`.
+          Defaults to a fresh one.
+        - start_col (str): Catalog column with the start of each entry.
+        - stop_col (str): Catalog column with the end of each entry.
+
+        Returns
+        -------
+        - tuple[pd.DataFrame, dict]: The matched rows of ``detections_df`` with a
+          ``catalog_triggers`` column (list of catalog records), and the matched events with the
+          same records added to every channel, keyed as in ``merged_anomalies``.
+
+        Raises
+        ------
+        - ValueError: If the catalog is empty or misses ``start_col`` / ``stop_col``.
+        """
         if catalog is None or catalog.empty:
-            raise ValueError("Catalog parameter is None or empty.")
+            raise ValueError("catalog is None or empty.")
+        for col in (start_col, stop_col):
+            if col not in catalog.columns:
+                raise ValueError(f"catalog has no column {col!r}.")
+        if merged_anomalies is None:
+            merged_anomalies = self.merged_anomalies
         if detections_df is None:
             detections_df = self.get_detections_df()
 
-        catalog_times = catalog['TIME'].to_numpy(dtype='datetime64[ns]')
-        catalog_end_times = catalog['END_TIME'].to_numpy(dtype='datetime64[ns]')
-        starts = detections_df['start_datetime'].to_numpy(dtype='datetime64[ns]')
-        stops = detections_df['stop_datetime'].to_numpy(dtype='datetime64[ns]')
-        
-        match_matrix = (
-            ((starts[:, None] >= catalog_times) & (starts[:, None] <= catalog_end_times))
-            | ((stops[:, None] >= catalog_times) & (stops[:, None] <= catalog_end_times))
+        cat_start = pd.to_datetime(catalog[start_col], utc=True).to_numpy()
+        cat_stop = pd.to_datetime(catalog[stop_col], utc=True).to_numpy()
+        starts = pd.to_datetime(detections_df[f"start_{self.time_col}"], utc=True).to_numpy()
+        stops = pd.to_datetime(detections_df[f"stop_{self.time_col}"], utc=True).to_numpy()
+        overlap = (starts[:, None] <= cat_stop[None, :]) & (stops[:, None] >= cat_start[None, :])
+
+        records = [catalog.iloc[np.flatnonzero(row)].to_dict("records") for row in overlap]
+        matched = detections_df.copy()
+        matched["catalog_triggers"] = records
+        matched = matched[overlap.any(axis=1)].reset_index(drop=True)
+
+        results = {}
+        for event_id, triggers in zip(matched["event_id"], matched["catalog_triggers"]):
+            if event_id not in merged_anomalies:
+                continue
+            event = copy.deepcopy(merged_anomalies[event_id])
+            for info in event.values():
+                info["catalog_triggers"] = triggers
+            results[event_id] = event
+        return matched, results
+
+    def plot_anomalies(self, merged_anomalies: Optional[dict] = None, return_df: Optional[pd.DataFrame] = None,
+                       support_vars: Optional[Sequence[str]] = None, show: bool = False) -> None:
+        """
+        Plot every event with signals, background, significance and support variables.
+
+        Parameters
+        ----------
+        - merged_anomalies (Optional[dict]): Events to plot. Defaults to the last computed ones.
+        - return_df (Optional[pd.DataFrame]): Per-sample results. Defaults to ``results``.
+        - support_vars (Optional[Sequence[str]]): Extra columns of ``tiles_df`` to plot.
+        - show (bool): Show the figures interactively.
+        """
+        from .plotter import Plotter
+
+        merged_anomalies = self.merged_anomalies if merged_anomalies is None else merged_anomalies
+        return_df = self.results if return_df is None else return_df
+        support_vars = list(support_vars or [])
+        base = self.tiles_df[self.y_cols + self.y_cols_pred + support_vars + [self.time_col]].reset_index(drop=True)
+        if self.std_cols:
+            std = self.tiles_df[self.std_cols].reset_index(drop=True)
+            std.columns = [f"{c}_std" for c in self.y_cols]
+            base = pd.concat([base, std], axis=1)
+        sig = return_df[[f"{c}_significance" for c in self.y_cols]].reset_index(drop=True)
+        plot_df = pd.concat([base, sig], axis=1).rename(columns={self.time_col: "datetime"})
+        Plotter(df=merged_anomalies).plot_anomalies(
+            self.trigger_type, support_vars, self.thresholds, plot_df, self.y_cols, self.y_cols_pred,
+            show=show, units=self.units, latex_y_cols=self.latex_y_cols,
         )
-
-        matches = [
-            catalog.iloc[idx].to_dict('records') if idx.size else np.nan
-            for idx in (np.flatnonzero(match_matrix_row) for match_matrix_row in match_matrix)
-        ]
-
-        detections_df = detections_df.copy()
-        detections_df['catalog_triggers'] = matches
-        detections_df.dropna(subset=['catalog_triggers'], inplace=True)
-        detections_df.reset_index(drop=True, inplace=True)
-
-        results_dict = {}
-        for an_time, anomalies in merged_anomalies.items():
-            start_idx = min(face['start_index'] for face in anomalies.values())
-            detection_time = self.tiles_df.loc[start_idx, 'datetime']
-            match = detections_df.loc[detections_df['start_datetime'] == detection_time]
-            if not match.empty and match['catalog_triggers'].notna().iloc[0]:
-                results_dict[an_time] = dict(anomalies)
-                for key in results_dict[an_time].keys():
-                    results_dict[an_time][key]['catalog_triggers'] = match['catalog_triggers'].iloc[0]
-
-        return detections_df, results_dict
-
-    def plot_anomalies(self, merged_anomalies=None, return_df=None, support_vars=[], show=False):
-        if merged_anomalies is None:
-            merged_anomalies = self.merged_anomalies
-        if return_df is None:
-            return_df = self.return_df
-        tiles_df = Data.merge_dfs(self.tiles_df[self.y_cols + self.y_cols_pred + support_vars + ['datetime'] + [f'{y_col}_std' for y_col in self.y_cols]], return_df, on_column='datetime')
-        Plotter(df = merged_anomalies).plot_anomalies(self.trigger_type, support_vars, self.thresholds, tiles_df, self.y_cols, self.y_cols_pred, show=show, units=self.units, latex_y_cols=self.latex_y_cols)
-
-    def is_mergeable(self, start: int, merged_starts: list, tolerance=60) -> tuple[int, int]:
-        """Check if mergeable using binary search on sorted list."""
-        left = bisect.bisect_left(merged_starts, start - tolerance)
-        right = bisect.bisect_right(merged_starts, start + tolerance)
-        for i in range(left, right):
-            anomaly_start = merged_starts[i]
-            if (start - tolerance) < anomaly_start < (start + tolerance):  # Usa included per controllo preciso
-                return start, anomaly_start
-        return False
-
-if __name__ == '__main__':
-    print('to be implemented')

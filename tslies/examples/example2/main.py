@@ -82,8 +82,8 @@ def run_trigger_mean(inputs_outputs_df, y_cols, y_cols_pred, catalog):
     stats_df = pd.DataFrame(stats)
     print(stats_df.set_index('face').T.to_string(header=True))
     reset = tiles_df['MET'].diff() > 60
-    trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='focus', units=units, latex_y_cols=latex_y_cols)
-    # trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='z_score', units=units, latex_y_cols=latex_y_cols)
+    # trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='focus', units=units, latex_y_cols=latex_y_cols)
+    trigger = Trigger(tiles_df, y_cols, y_cols_pred, thresholds=thresholds, trigger_type='z_score', units=units, latex_y_cols=latex_y_cols)
     trigger.run(reset_condition=reset)
     merged_anomalies, return_df = trigger.identify_and_merge_triggers(merge_interval=60)
     print(return_df.head())

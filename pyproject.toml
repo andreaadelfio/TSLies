@@ -31,5 +31,13 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
 [tool.setuptools.packages.find]
 include = ["tslies", "tslies.*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "tslies/stats", "tslies/trigger.py", "tslies/benchmark"]
+pythonpath = ["."]
+addopts = "--doctest-modules"
