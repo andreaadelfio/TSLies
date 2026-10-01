@@ -1,8 +1,10 @@
-# The test suite (tests/ and the examples in the docstrings), on every pull request.
+# The test suite (tests/ and the examples in the docstrings), on the pull requests towards staging
+# (dev -> staging) and master (staging -> master).
 name: tests
 
 on:
   pull_request:
+    branches: [staging, master]
   workflow_dispatch:  # also by hand, from the Actions page
 
 jobs:

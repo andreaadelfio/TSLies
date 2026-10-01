@@ -1,12 +1,13 @@
 # The long benchmark (benchmarks/long_benchmark.py): the results must be those of
-# benchmarks/long_benchmark_reference.json. It runs on the pull requests that change the code, and
-# by hand from the Actions page. If the results differ, the new ones are attached to the run
+# benchmarks/long_benchmark_reference.json. It runs on the pull requests towards staging and master
+# that change the code, and by hand from the Actions page. If the results differ, the new ones are attached to the run
 # (long_benchmark_last.json): if they are good, copy them over the reference, or run
 # `python benchmarks/long_benchmark.py` and then `--accept` locally, and commit the reference.
 name: long benchmark
 
 on:
   pull_request:
+    branches: [staging, master]
     paths:
       - "tslies/**"
       - "benchmarks/**"
