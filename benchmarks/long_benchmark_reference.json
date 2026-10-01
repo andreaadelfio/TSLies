@@ -1,0 +1,124 @@
+{
+  "settings": {
+    "weeks": 12,
+    "days_per_week": 7,
+    "channels": 5,
+    "anomalies_per_week": 84,
+    "seed": 2024,
+    "strength_range": [
+      3,
+      30
+    ],
+    "channels_per_anomaly": [
+      1,
+      3
+    ],
+    "min_gap": 600,
+    "margin": 120,
+    "merge_interval": 60,
+    "threshold": 5.25,
+    "methods": {
+      "FOCuS, restart after each alarm": "restart",
+      "FOCuS, alarmed points set to background": "background"
+    },
+    "strength_bins": [
+      3,
+      5,
+      8,
+      12,
+      18,
+      30
+    ]
+  },
+  "data_sha256": "99378731c6979d8b3c7f6e3e32685152a656747c83ea878512d1b5728d7bbc4e",
+  "results": {
+    "FOCuS, restart after each alarm": {
+      "signals": 1008,
+      "found": 887,
+      "found [%]": 87.996,
+      "found [%] by kind": {
+        "box": 84.153,
+        "fred": 95.5882,
+        "gaussian": 94.5,
+        "spike": 78.8991,
+        "triangle": 87.1921
+      },
+      "found [%] by strength": {
+        "3-5": 53.5088,
+        "5-8": 92.7536,
+        "8-12": 100.0,
+        "12-18": 100.0,
+        "18-30": 100.0
+      },
+      "events": 912,
+      "false alarms": 25,
+      "false alarms per day": 0.2976,
+      "false alarms per day, pure noise": 0.3095,
+      "events with more than one signal": 2,
+      "signals in events with more than one signal": 4,
+      "longest event [hours]": 0.8006,
+      "found before their end [%]": 99.2108,
+      "median delay [s] by kind": {
+        "box": 4.0,
+        "fred": 10.0,
+        "gaussian": 96.0,
+        "spike": 0.0,
+        "triangle": 109.0
+      },
+      "median start error [s] by kind": {
+        "box": 0.0,
+        "fred": 4.0,
+        "gaussian": 43.0,
+        "spike": 0.0,
+        "triangle": 26.0
+      },
+      "median event duration / signal duration": 0.6769
+    },
+    "FOCuS, alarmed points set to background": {
+      "signals": 1008,
+      "found": 890,
+      "found [%]": 88.2937,
+      "found [%] by kind": {
+        "box": 84.153,
+        "fred": 95.5882,
+        "gaussian": 94.5,
+        "spike": 79.3578,
+        "triangle": 88.1773
+      },
+      "found [%] by strength": {
+        "3-5": 54.8246,
+        "5-8": 92.7536,
+        "8-12": 100.0,
+        "12-18": 100.0,
+        "18-30": 100.0
+      },
+      "events": 861,
+      "false alarms": 22,
+      "false alarms per day": 0.2619,
+      "false alarms per day, pure noise": 0.3095,
+      "events with more than one signal": 9,
+      "signals in events with more than one signal": 60,
+      "longest event [hours]": 50.0097,
+      "found before their end [%]": 99.2135,
+      "median delay [s] by kind": {
+        "box": 4.0,
+        "fred": 10.0,
+        "gaussian": 87.0,
+        "spike": 0.0,
+        "triangle": 88.0
+      },
+      "median start error [s] by kind": {
+        "box": -1.0,
+        "fred": 1.0,
+        "gaussian": 14.0,
+        "spike": 0.0,
+        "triangle": 6.0
+      },
+      "median event duration / signal duration": 1.0
+    }
+  },
+  "seconds": {
+    "FOCuS, restart after each alarm": 243.2,
+    "FOCuS, alarmed points set to background": 289.2
+  }
+}

@@ -1,0 +1,39 @@
+# The long benchmark (benchmarks/long_benchmark.py): the results must be those of
+# benchmarks/long_benchmark_reference.json. It runs on the pull requests towards staging and master
+# that change the code, and by hand from the Actions page. If the results differ, the new ones are attached to the run
+# (long_benchmark_last.json): if they are good, copy them over the reference, or run
+# `python benchmarks/long_benchmark.py` and then `--accept` locally, and commit the reference.
+name: long benchmark
+
+on:
+  pull_request:
+    branches: [staging, master]
+    paths:
+      - "tslies/**"
+      - "benchmarks/**"
+      - "tests/**"
+      - "pyproject.toml"
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: Install TSLies, with the numpy and pandas of the reference
+        # other versions can change the random numbers, and then the data of the benchmark
+        run: pip install -e . "numpy==1.26.4" "pandas==2.2.3"
+      - name: Run the benchmark and compare with the reference
+        run: python benchmarks/long_benchmark.py
+      - name: Keep the results of this run
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: long-benchmark-results
+          path: benchmarks/long_benchmark_last.json

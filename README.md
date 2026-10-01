@@ -340,5 +340,6 @@ If you use TSLies in your research, please cite:
 - cancellare dataset.py
 - pensare agli unit tests
 - with sns.plotting_context("talk"):
+- assicurarsi della corretta implementazione di FOCuS rispetto alla libreria
 
 [Go to Top](#table-of-contents)
